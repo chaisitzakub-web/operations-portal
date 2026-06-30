@@ -62,14 +62,14 @@ class AttachmentStore {
     }
 }
 
-// 👮 รายชื่อระดับฝ่ายเสธ ผู้ดูแลระบบ และกำลังพลเริ่มต้น
+// 👮 รายชื่อกำลังพลเริ่มต้น (เรียงตามลำดับชั้นยศทหารอย่างถูกต้อง)
 const DEFAULT_STAFF = [
-    { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true },
-    { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true },
-    { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true },
-    { id: 'staff-1', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak' },
-    { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai' },
-    { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat' }
+    { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
+    { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
+    { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 3 },
+    { id: 'staff-1', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak', rankWeight: 20 },
+    { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30 },
+    { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40 }
 ];
 const DEFAULT_TASKS = [];
 
@@ -585,11 +585,29 @@ class App {
         }
     }
 
+    // 👮 ฟังก์ชันช่วยคำนวณและประเมินค่าน้ำหนักชั้นยศทหารเพื่อใช้จัดเรียงลำดับใน Dropdown
+    getRankWeight(name) {
+        if (name.startsWith('พ.ท.')) return 10;
+        if (name.startsWith('พ.ต.')) return 20;
+        if (name.startsWith('ร.อ.')) return 30;
+        if (name.startsWith('ร.ท.')) return 40;
+        if (name.startsWith('ร.ต.')) return 50;
+        if (name.startsWith('จ.ส.อ.')) return 60;
+        if (name.startsWith('จ.ส.ท.')) return 70;
+        if (name.startsWith('จ.ส.ต.')) return 80;
+        if (name.startsWith('ส.อ.')) return 90;
+        if (name.startsWith('ส.ท.')) return 100;
+        if (name.startsWith('ส.ต.')) return 110;
+        return 500; // หากไม่ระบุยศธรรมดาให้อยู่ท้ายสุด
+    }
+
+    // 🛠️ ปรับปรุงหัวข้อแท็บเป็นเลขอารบิก 1, 2 และจัดลำดับคนในกลุ่มตามชั้นยศทหารอย่างถูกต้อง
     populateRoleSwitcher() {
         this.roleSelector.innerHTML = '';
         
+        // 1. กลุ่มระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)
         const groupAdmin = document.createElement('optgroup');
-        groupAdmin.label = '๑. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
+        groupAdmin.label = '1. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
         
         const adminMembers = this.staff.filter(m => m.id === 'leader' || m.id === 'asst-g3' || m.id === 'dev-chaisith' || m.isStaffAdmin === true);
         adminMembers.forEach(member => {
@@ -605,10 +623,15 @@ class App {
         });
         this.roleSelector.appendChild(groupAdmin);
 
+        // 2. กลุ่มระดับเจ้าหน้าที่ฝ่ายยุทธการ (จัดเรียงลำดับชั้นยศ พ.ท. -> ส.ต.)
         const groupStaff = document.createElement('optgroup');
-        groupStaff.label = '๒. ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
+        groupStaff.label = '2. ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
         
         const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith' && !m.isStaffAdmin);
+        
+        // สั่ง Sort จัดเรียงรายชื่อลูกทีมตามค่าน้ำหนักยศทหาร
+        generalStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
+        
         generalStaff.forEach(member => {
             const opt = document.createElement('option');
             opt.value = member.id;
@@ -622,6 +645,10 @@ class App {
     populateAssigneeDropdowns() {
         this.taskAssigneeInput.innerHTML = '';
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
+        
+        // มอบหมายงานก็เรียงตามยศทหารเพื่อให้หาชื่อได้ง่ายเช่นกัน
+        workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
+        
         workingStaff.forEach(member => {
             const opt = document.createElement('option');
             opt.value = member.id;
@@ -712,6 +739,8 @@ class App {
         const incompletedData = [];
 
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
+        workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
+
         workingStaff.forEach(member => {
             const memberTasks = this.tasks.filter(t => t.assigneeId === member.id);
             const comp = memberTasks.filter(t => t.status === 'เสร็จสิ้น').length;
@@ -744,6 +773,8 @@ class App {
     renderTeamProgressTable() {
         this.teamProgressTableBody.innerHTML = '';
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
+        workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
+
         workingStaff.forEach(member => {
             const memberTasks = this.tasks.filter(t => t.assigneeId === member.id);
             const total = memberTasks.length;
