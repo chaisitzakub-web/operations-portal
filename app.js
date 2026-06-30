@@ -183,6 +183,8 @@ class App {
         
         // Drag and Drop active target card
         this.draggedCardId = null;
+        // Track editing staff
+        this.editingStaffId = null; 
 
         // Initialize DOM Elements
         this.initDOMElements();
@@ -965,10 +967,15 @@ class App {
             const card = document.createElement('div');
             card.className = 'team-member-card glass-card';
             card.innerHTML = `
-                <button class="btn-remove-member" onclick="app.removeMember('${member.id}')" title="ลบกำลังพลออกจากระบบ">
-                    <i class="fas fa-user-minus"></i>
-                </button>
-                <div class="member-avatar-box">
+                <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px;">
+                    <button onclick="app.editMember('${member.id}')" title="แก้ไขข้อมูลเจ้าหน้าที่" style="background: transparent; border: none; color: #3b82f6; cursor: pointer; font-size: 16px;">
+                        <i class="fas fa-user-pen"></i>
+                    </button>
+                    <button class="btn-remove-member" onclick="app.removeMember('${member.id}')" title="ลบกำลังพลออกจากระบบ" style="position: static; margin: 0;">
+                        <i class="fas fa-user-minus"></i>
+                    </button>
+                </div>
+                <div class="member-avatar-box" style="margin-top: 15px;">
                     <img src="${member.avatar}" alt="Avatar" class="avatar-lg">
                 </div>
                 <div class="member-name">${member.name}</div>
@@ -1014,33 +1021,46 @@ class App {
 
         if (!name || !role) return;
 
-        const newMember = {
-            id: `staff-${Date.now()}`,
-            name,
-            role,
-            avatar
-        };
+        let memberData;
 
-        this.staff.push(newMember);
+        if (this.editingStaffId) {
+            // โหมดแก้ไข (Edit Mode)
+            const index = this.staff.findIndex(m => m.id === this.editingStaffId);
+            if (index !== -1) {
+                this.staff[index].name = name;
+                this.staff[index].role = role;
+                this.staff[index].avatar = avatar;
+                memberData = this.staff[index];
+            }
+        } else {
+            // โหมดเพิ่มใหม่ (Add Mode)
+            memberData = {
+                id: `staff-${Date.now()}`,
+                name,
+                role,
+                avatar
+            };
+            this.staff.push(memberData);
+        }
+
         this.saveData();
         
-        if (this.isCloudMode) {
+        if (this.isCloudMode && memberData) {
             fetch('/api/staff', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newMember)
-            }).catch(err => console.error("Error syncing new staff to D1", err));
+                body: JSON.stringify(memberData)
+            }).catch(err => console.error("Error syncing staff to D1", err));
         }
         
-        // Reset form
-        this.memberNameInput.value = '';
-        this.memberRoleInput.value = '';
+        const isEdit = !!this.editingStaffId;
+        this.resetMemberForm(); // ล้างฟอร์ม
         
         this.populateRoleSwitcher();
         this.populateAssigneeDropdowns();
         this.renderTeamMembers();
         
-        this.showToast(`เพิ่มรายชื่อเจ้าหน้าที่ "${name}" สำเร็จ`);
+        this.showToast(isEdit ? `แก้ไขข้อมูล "${name}" สำเร็จ` : `เพิ่มรายชื่อเจ้าหน้าที่ "${name}" สำเร็จ`);
     }
 
     removeMember(memberId) {
@@ -1080,6 +1100,71 @@ class App {
             }
             this.showToast(`ลบรายชื่อเจ้าหน้าที่สำเร็จ`, 'warning');
         }
+    }
+    
+    editMember(memberId) {
+        const member = this.staff.find(m => m.id === memberId);
+        if (!member) return;
+
+        // บันทึก ID ที่กำลังแก้ไข และดึงข้อมูลเดิมไปใส่ในฟอร์ม
+        this.editingStaffId = memberId;
+        this.memberNameInput.value = member.name;
+        this.memberRoleInput.value = member.role;
+        this.selectedAvatarInput.value = member.avatar;
+
+        // อัปเดตไฮไลท์ภาพอวตาร
+        document.querySelectorAll('.avatar-opt').forEach(el => {
+            if (el.src === member.avatar) el.classList.add('selected');
+            else el.classList.remove('selected');
+        });
+
+        // เปลี่ยนหน้าตาฟอร์มให้รู้ว่ากำลัง "แก้ไข"
+        const formTitle = this.addMemberForm.parentElement.querySelector('.card-title');
+        if (formTitle) formTitle.innerHTML = '<i class="fas fa-user-pen"></i> แก้ไขข้อมูลเจ้าหน้าที่';
+        
+        const submitBtn = this.addMemberForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> บันทึกการแก้ไข';
+        
+        // สร้างปุ่มยกเลิก (ถ้ายังไม่มี)
+        let cancelBtn = document.getElementById('cancelEditBtn');
+        if (!cancelBtn) {
+            cancelBtn = document.createElement('button');
+            cancelBtn.id = 'cancelEditBtn';
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'btn btn-secondary btn-block';
+            cancelBtn.style.marginTop = '10px';
+            cancelBtn.innerHTML = '<i class="fas fa-times"></i> ยกเลิกการแก้ไข';
+            cancelBtn.onclick = () => this.resetMemberForm();
+            this.addMemberForm.appendChild(cancelBtn);
+        }
+        cancelBtn.style.display = 'block';
+
+        // เลื่อนหน้าจอไปหาฟอร์ม
+        this.addMemberForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    resetMemberForm() {
+        this.editingStaffId = null;
+        this.memberNameInput.value = '';
+        this.memberRoleInput.value = '';
+        
+        // รีเซ็ตอวตารกลับไปตัวแรกสุด
+        const firstAvatar = document.querySelector('.avatar-opt');
+        if (firstAvatar) {
+            document.querySelectorAll('.avatar-opt').forEach(el => el.classList.remove('selected'));
+            firstAvatar.classList.add('selected');
+            this.selectedAvatarInput.value = firstAvatar.src;
+        }
+
+        // คืนค่าหน้าตาฟอร์มกลับเป็นโหมด "เพิ่มใหม่"
+        const formTitle = this.addMemberForm.parentElement.querySelector('.card-title');
+        if (formTitle) formTitle.innerHTML = '<i class="fas fa-user-plus"></i> เพิ่มเจ้าหน้าที่ยุทธการคนใหม่';
+        
+        const submitBtn = this.addMemberForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-plus"></i> เพิ่มเจ้าหน้าที่เข้าระบบ';
+
+        const cancelBtn = document.getElementById('cancelEditBtn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
     }
 
     // --- STAFF VIEW: KANBAN BOARD & DRAG-DROP ---
