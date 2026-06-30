@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ระบบจัดการงานและแดชบอร์ดฝ่ายยุทธการ | Operations Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -387,12 +387,11 @@
                 </div>
             </section>
 
-            <!-- เมนู ปฏิทินยุทธการส่วนกลาง -->
             <section id="viewTeamCalendar" class="content-view d-none">
-                <div class="glass-card" style="height: 80vh; display: flex; flex-direction: column;">
+                <div class="glass-card style-calendar-card" style="height: 80vh; display: flex; flex-direction: column;">
                     <h3 class="card-title"><i class="far fa-calendar-alt"></i> ปฏิทินยุทธการส่วนกลาง</h3>
                     <p class="text-muted">ตารางแสดงภารกิจและวันหยุดราชการประจำปี</p>
-                    <div style="flex-grow: 1; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); background: #fff;">
+                    <div class="iframe-calendar-wrapper" style="flex-grow: 1; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); background: #fff;">
                         <iframe src="https://calendar.google.com/calendar/embed?height=600&wkst=1&bgcolor=%23ffffff&ctz=Asia%2FBangkok&showTitle=0&showPrint=0&showCalendars=0&showTz=0&src=th.thai%23holiday%40group.v.calendar.google.com&color=%230B8043" style="border-width:0" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
                     </div>
                 </div>
@@ -434,7 +433,7 @@
                         <label for="taskDescription">รายละเอียดการปฏิบัติงาน</label>
                         <textarea id="taskDescription" class="form-control text-area" rows="3" placeholder="ระบุรายละเอียด แผนยุทธศาสตร์ ขั้นตอนการดำเนินงาน..."></textarea>
                     </div>
-                    <div class="form-row">
+                    <div class="form-row row-mobile-split">
                         <div class="form-group col-6">
                             <label for="taskAssignee"><span class="required">*</span> เจ้าหน้าที่ผู้รับผิดชอบ</label>
                             <select id="taskAssignee" class="form-control" required>
@@ -450,7 +449,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-row">
+                    <div class="form-row row-mobile-split">
                         <div class="form-group col-6">
                             <label for="taskUrgency"><span class="required">*</span> ระดับความเร่งด่วน</label>
                             <select id="taskUrgency" class="form-control" required>
@@ -470,13 +469,13 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="form-row row-mobile-three">
                         <div class="form-group">
-                            <label for="taskReceiveDate"><span class="required">*</span> วันที่เอกสารเข้า</label>
+                            <label for="taskReceiveDate"><span class="required">*</span> เอกสารเข้า</label>
                             <input type="date" id="taskReceiveDate" class="form-control" required>
                         </div>
                         <div class="form-group">
-                            <label for="taskStartDate"><span class="required">*</span> เริ่มปฏิบัติ</label>
+                            <label for="taskStartDate"><span class="required">*</span> วันที่เริ่ม</label>
                             <input type="date" id="taskStartDate" class="form-control" required>
                         </div>
                         <div class="form-group">
@@ -486,7 +485,7 @@
                     </div>
                     <div class="form-row" id="pdfUploadRow" style="margin-top: 15px;">
                         <div class="form-group col-12">
-                            <label for="taskPdf"><i class="fas fa-file-pdf text-danger"></i> แนบเอกสารยุทธการ (PDF เท่านั้น - เฉพาะเมื่อสถานะเสร็จสิ้น)</label>
+                            <label for="taskPdf"><i class="fas fa-file-pdf text-danger"></i> แนบเอกสารยุทธการ (PDF เท่านั้น)</label>
                             <input type="file" id="taskPdf" class="form-control" accept=".pdf" multiple>
                             <small class="text-muted" id="pdfUploadStatus">ไม่มีไฟล์ที่แนบไว้</small>
                         </div>
@@ -511,15 +510,18 @@
                 <button class="modal-close-btn" id="taskDetailCloseBtn"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <div class="detail-grid">
-                    <!-- นำ Activity Log ออก และขยายช่องรายละเอียดภารกิจให้เต็มกรอบด้านซ้าย -->
-                    <div class="detail-main-info" style="display: flex; flex-direction: column; height: 100%;">
-                        <div class="detail-section" style="flex-grow: 1; display: flex; flex-direction: column;">
+                <div class="detail-grid row-mobile-split">
+                    <div class="detail-main-info">
+                        <div class="detail-section">
                             <h4 class="detail-sec-title">รายละเอียดภารกิจ</h4>
-                            <p class="detail-desc" id="detailDescription" style="flex-grow: 1; min-height: 250px; max-height: 450px; overflow-y: auto;">ข้อมูลรายละเอียดงานยุทธการ...</p>
+                            <p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p>
+                        </div>
+                        <div class="detail-section">
+                            <h4 class="detail-sec-title"><i class="fas fa-receipt"></i> บันทึกประวัติการดำเนินงาน (Activity Log)</h4>
+                            <div class="activity-log" id="detailActivityLog">
+                                </div>
                         </div>
                     </div>
-
                     <div class="detail-meta-info glass-card">
                         <h4 class="detail-sec-title"><i class="fas fa-circle-info"></i> ข้อมูลจำเพาะ</h4>
                         <div class="meta-item">
@@ -539,15 +541,15 @@
                         </div>
                         <div class="meta-item">
                             <span class="meta-label">วันที่เอกสารเข้า:</span>
-                            <span class="meta-value" id="detailReceiveDate">2026-06-29</span>
+                            <span class="meta-value" id="detailReceiveDate">-</span>
                         </div>
                         <div class="meta-item">
                             <span class="meta-label">วันที่เริ่มงาน:</span>
-                            <span class="meta-value" id="detailStartDate">2026-06-29</span>
+                            <span class="meta-value" id="detailStartDate">-</span>
                         </div>
                         <div class="meta-item">
                             <span class="meta-label">กำหนดส่ง:</span>
-                            <span class="meta-value" id="detailDeadline">2026-06-30</span>
+                            <span class="meta-value" id="detailDeadline">-</span>
                         </div>
                         <div class="meta-item text-danger" id="detailOverdueBox">
                             </div>
@@ -578,6 +580,7 @@
         </div>
     </div>
 
+    <!-- FLOATING CHAT WIDGET -->
     <div class="chat-widget" id="chatWidget">
         <div class="chat-header" id="chatHeader">
             <span><i class="fas fa-comments"></i> ช่องแชทสื่อสาร</span>
