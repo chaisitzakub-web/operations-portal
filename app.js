@@ -22,6 +22,7 @@ class AttachmentStore {
             };
         });
     }
+    // อัปเดตให้รองรับอาร์เรย์ไฟล์
     saveAttachment(taskId, files) {
         return new Promise((resolve, reject) => {
             if (!this.db) { reject("Database not initialized"); return; }
@@ -257,7 +258,6 @@ class App {
                 if (tasksData && tasksData.length > 0) this.tasks = tasksData;
             }
             
-            // ดึงข้อความแชทครั้งแรก
             const chatRes = await fetch('/api/chat');
             if (chatRes.ok) {
                 const chatData = await chatRes.json();
@@ -273,14 +273,12 @@ class App {
         }
     }
 
-    // ฟังก์ชันดึงเฉพาะแชท (ทำงานซ่อนอยู่หลังบ้าน)
     async syncChatOnly() {
         if (!this.isCloudMode) return;
         try {
             const chatRes = await fetch('/api/chat');
             if (chatRes.ok) {
                 const chatData = await chatRes.json();
-                // ถ้ามีแชทใหม่เข้ามา
                 if (chatData && chatData.length > this.messages.length) {
                     this.messages = chatData;
                     this.saveData();
@@ -289,7 +287,6 @@ class App {
                     if (this.chatOpen) {
                         this.scrollToBottomChat();
                     } else if (this.chatUnreadBadge) {
-                        // แจ้งเตือนข้อความใหม่
                         this.chatUnreadBadge.classList.remove('d-none');
                         this.chatUnreadBadge.textContent = '!';
                     }
@@ -351,7 +348,6 @@ class App {
             this.pdfUploadRow.style.display = (this.taskStatusInput.value === 'เสร็จสิ้น') ? 'grid' : 'none';
         });
 
-        // อัปเดตแสดงจำนวนไฟล์
         this.taskPdfInput.addEventListener('change', (e) => {
             const files = e.target.files;
             if (files.length === 0) {
@@ -492,13 +488,11 @@ class App {
             time: new Date().toISOString()
         };
         
-        // เด้งโชว์ที่จอคนส่งทันที ไม่ต้องรอเซิร์ฟเวอร์ตอบ
         this.messages.push(msg);
         this.saveData();
         this.renderChatMessages();
         this.scrollToBottomChat();
 
-        // โยนขึ้นฐานข้อมูล D1
         if (this.isCloudMode) {
             try {
                 await fetch('/api/chat', {
@@ -1139,6 +1133,24 @@ class App {
         else { this.detailOverdueBox.classList.add('d-none'); }
 
         this.renderActivityLog(task.history); this.renderDetailModalFooter(task);
+
+        // --- สร้างลิงก์สำหรับ Google Calendar และ Outlook ---
+        const titleCal = encodeURIComponent(`[ยุทธการ] ${task.name}`);
+        const detailsCal = encodeURIComponent(`รายละเอียด:\n${task.description}\n\nสถานะ: ${task.status}\nความเร่งด่วน: ${task.urgency}\nชั้นความลับ: ${task.secrecy}`);
+        
+        const startStr = task.startDate.replace(/-/g, '');
+        const endDateObj = new Date(task.deadline);
+        endDateObj.setDate(endDateObj.getDate() + 1);
+        const endStr = endDateObj.toISOString().split('T')[0].replace(/-/g, '');
+
+        const googleCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${titleCal}&details=${detailsCal}&dates=${startStr}/${endStr}`;
+        const outlookCalUrl = `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${titleCal}&body=${detailsCal}&startdt=${task.startDate}T00:00:00&enddt=${task.deadline}T23:59:59&allday=true`;
+
+        const btnGoogle = document.getElementById('btnGoogleCal');
+        const btnOutlook = document.getElementById('btnOutlookCal');
+        if(btnGoogle) btnGoogle.href = googleCalUrl;
+        if(btnOutlook) btnOutlook.href = outlookCalUrl;
+        // ----------------------------------------------------
 
         if (task.hasAttachment) {
             this.detailPdfItem.classList.remove('d-none');
