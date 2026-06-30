@@ -49,6 +49,10 @@
                         <i class="fas fa-users-gear"></i>
                         <span>จัดการเจ้าหน้าที่</span>
                     </a>
+                    <a href="#" class="nav-link" data-view="team-calendar" id="navLeaderCalendar">
+                        <i class="far fa-calendar-alt"></i>
+                        <span>ปฏิทินยุทธการ</span>
+                    </a>
                     <a href="#" class="nav-link" data-view="data-repo" id="navLeaderDataRepo">
                         <i class="fas fa-cloud-arrow-up"></i>
                         <span>คลังข้อมูลส่วนกลาง</span>
@@ -64,6 +68,10 @@
                     <a href="#" class="nav-link" data-view="staff-tasks" id="navStaffTasks">
                         <i class="fas fa-folder-open"></i>
                         <span>ภารกิจของฉัน</span>
+                    </a>
+                    <a href="#" class="nav-link" data-view="team-calendar" id="navStaffCalendar">
+                        <i class="far fa-calendar-alt"></i>
+                        <span>ปฏิทินยุทธการ</span>
                     </a>
                     <a href="#" class="nav-link" data-view="data-repo" id="navStaffDataRepo">
                         <i class="fas fa-cloud-arrow-up"></i>
@@ -195,6 +203,7 @@
                         <label for="filterUrgency"><i class="fas fa-bolt"></i> ความเร่งด่วน</label>
                         <select id="filterUrgency" class="form-control">
                             <option value="all">ทั้งหมด</option>
+                            <option value="ปกติ">ปกติ</option>
                             <option value="ด่วน">ด่วน</option>
                             <option value="ด่วนมาก">ด่วนมาก</option>
                             <option value="ด่วนที่สุด">ด่วนที่สุด</option>
@@ -239,7 +248,7 @@
                                     <th>ผู้รับผิดชอบ</th>
                                     <th>ความเร่งด่วน</th>
                                     <th>ชั้นความลับ</th>
-                                    <th>วันที่เริ่ม</th>
+                                    <th>วันที่เอกสารเข้า</th>
                                     <th>กำหนดส่ง (Deadline)</th>
                                     <th>สถานะ</th>
                                     <th>การจัดการ</th>
@@ -365,7 +374,7 @@
                                     <th>ภารกิจ</th>
                                     <th>ความเร่งด่วน</th>
                                     <th>ชั้นความลับ</th>
-                                    <th>วันที่เริ่ม</th>
+                                    <th>วันที่เอกสารเข้า</th>
                                     <th>กำหนดส่ง (Deadline)</th>
                                     <th>สถานะ</th>
                                     <th>การจัดการ</th>
@@ -374,6 +383,17 @@
                             <tbody>
                                 </tbody>
                         </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- เมนู ปฏิทินยุทธการส่วนกลาง -->
+            <section id="viewTeamCalendar" class="content-view d-none">
+                <div class="glass-card" style="height: 80vh; display: flex; flex-direction: column;">
+                    <h3 class="card-title"><i class="far fa-calendar-alt"></i> ปฏิทินยุทธการส่วนกลาง</h3>
+                    <p class="text-muted">ตารางแสดงภารกิจและวันหยุดราชการประจำปี</p>
+                    <div style="flex-grow: 1; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); background: #fff;">
+                        <iframe src="https://calendar.google.com/calendar/embed?height=600&wkst=1&bgcolor=%23ffffff&ctz=Asia%2FBangkok&showTitle=0&showPrint=0&showCalendars=0&showTz=0&src=th.thai%23holiday%40group.v.calendar.google.com&color=%230B8043" style="border-width:0" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
                     </div>
                 </div>
             </section>
@@ -396,6 +416,7 @@
         </main>
     </div>
 
+    <!-- TASK MODAL -->
     <div class="modal-backdrop" id="taskModal">
         <div class="modal glass-card">
             <div class="modal-header">
@@ -433,6 +454,7 @@
                         <div class="form-group col-6">
                             <label for="taskUrgency"><span class="required">*</span> ระดับความเร่งด่วน</label>
                             <select id="taskUrgency" class="form-control" required>
+                                <option value="ปกติ">ปกติ</option>
                                 <option value="ด่วน">ด่วน</option>
                                 <option value="ด่วนมาก">ด่วนมาก</option>
                                 <option value="ด่วนที่สุด">ด่วนที่สุด</option>
@@ -448,13 +470,17 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group col-6">
-                            <label for="taskStartDate"><span class="required">*</span> วันที่เริ่มปฏิบัติภารกิจ</label>
+                    <div class="form-row" style="grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="form-group">
+                            <label for="taskReceiveDate"><span class="required">*</span> วันที่เอกสารเข้า</label>
+                            <input type="date" id="taskReceiveDate" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskStartDate"><span class="required">*</span> เริ่มปฏิบัติ</label>
                             <input type="date" id="taskStartDate" class="form-control" required>
                         </div>
-                        <div class="form-group col-6">
-                            <label for="taskDeadline"><span class="required">*</span> กำหนดส่ง (Deadline)</label>
+                        <div class="form-group">
+                            <label for="taskDeadline"><span class="required">*</span> กำหนดส่ง</label>
                             <input type="date" id="taskDeadline" class="form-control" required>
                         </div>
                     </div>
@@ -474,6 +500,7 @@
         </div>
     </div>
 
+    <!-- TASK DETAIL MODAL -->
     <div class="modal-backdrop" id="taskDetailModal">
         <div class="modal modal-lg glass-card">
             <div class="modal-header">
@@ -485,17 +512,14 @@
             </div>
             <div class="modal-body">
                 <div class="detail-grid">
-                    <div class="detail-main-info">
-                        <div class="detail-section">
+                    <!-- นำ Activity Log ออก และขยายช่องรายละเอียดภารกิจให้เต็มกรอบด้านซ้าย -->
+                    <div class="detail-main-info" style="display: flex; flex-direction: column; height: 100%;">
+                        <div class="detail-section" style="flex-grow: 1; display: flex; flex-direction: column;">
                             <h4 class="detail-sec-title">รายละเอียดภารกิจ</h4>
-                            <p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p>
-                        </div>
-                        <div class="detail-section">
-                            <h4 class="detail-sec-title"><i class="fas fa-receipt"></i> บันทึกประวัติการดำเนินงาน (Activity Log)</h4>
-                            <div class="activity-log" id="detailActivityLog">
-                                </div>
+                            <p class="detail-desc" id="detailDescription" style="flex-grow: 1; min-height: 250px; max-height: 450px; overflow-y: auto;">ข้อมูลรายละเอียดงานยุทธการ...</p>
                         </div>
                     </div>
+
                     <div class="detail-meta-info glass-card">
                         <h4 class="detail-sec-title"><i class="fas fa-circle-info"></i> ข้อมูลจำเพาะ</h4>
                         <div class="meta-item">
@@ -512,6 +536,10 @@
                         <div class="meta-item">
                             <span class="meta-label">ความเร่งด่วน:</span>
                             <span class="urgency-badge" id="detailUrgencyBadge">ด่วนที่สุด</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">วันที่เอกสารเข้า:</span>
+                            <span class="meta-value" id="detailReceiveDate">2026-06-29</span>
                         </div>
                         <div class="meta-item">
                             <span class="meta-label">วันที่เริ่มงาน:</span>
@@ -539,7 +567,7 @@
                         <div class="meta-item d-none" id="detailPdfItem" style="align-items: flex-start;">
                             <span class="meta-label" style="margin-top: 8px;">เอกสารแนบ:</span>
                             <div id="pdfButtonsContainer" style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                                </div>
+                            </div>
                         </div>
 
                     </div>
