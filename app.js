@@ -1601,25 +1601,35 @@ class App {
             const newBtnView = this.btnViewPdf.cloneNode(true);
             this.btnViewPdf.parentNode.replaceChild(newBtnView, this.btnViewPdf);
             this.btnViewPdf = newBtnView;
+            
+            // --- อัปเดตส่วนนี้เพื่อเปิดไฟล์จาก Cloudflare แทน IndexedDB ---
             this.btnViewPdf.addEventListener('click', async () => {
-                this.btnViewPdf.disabled = true;
-                this.btnViewPdf.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังดึงไฟล์...';
-                try {
-                    const record = await this.attachments.getAttachment(task.id);
-                    if (record && record.fileData) {
-                        const url = URL.createObjectURL(record.fileData);
-                        window.open(url, '_blank');
-                    } else {
-                        alert('ไม่พบไฟล์แนบในฐานข้อมูล เครื่องนี้อาจจะไม่มีไฟล์ดังกล่าว หรือข้อมูลเสียหาย');
+                if (this.isCloudMode) {
+                    // โหมดออนไลน์: ให้เปิดไฟล์ PDF จาก API โดยตรง
+                    window.open(`/api/pdf?taskId=${task.id}`, '_blank');
+                } else {
+                    // โหมดออฟไลน์: ดึงไฟล์จาก IndexedDB ในเครื่อง
+                    this.btnViewPdf.disabled = true;
+                    this.btnViewPdf.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังดึงไฟล์...';
+                    try {
+                        const record = await this.attachments.getAttachment(task.id);
+                        if (record && record.fileData) {
+                            const url = URL.createObjectURL(record.fileData);
+                            window.open(url, '_blank');
+                        } else {
+                            alert('ไม่พบไฟล์แนบในฐานข้อมูล เครื่องนี้อาจจะไม่มีไฟล์ดังกล่าว หรือข้อมูลเสียหาย');
+                        }
+                    } catch (err) {
+                        console.error("Error viewing PDF", err);
+                        alert('เกิดข้อผิดพลาดในการโหลดไฟล์ PDF');
+                    } finally {
+                        this.btnViewPdf.disabled = false;
+                        this.btnViewPdf.innerHTML = '<i class="fas fa-file-pdf text-danger"></i> เปิดดูเอกสาร PDF';
                     }
-                } catch (err) {
-                    console.error("Error viewing PDF", err);
-                    alert('เกิดข้อผิดพลาดในการโหลดไฟล์ PDF');
-                } finally {
-                    this.btnViewPdf.disabled = false;
-                    this.btnViewPdf.innerHTML = '<i class="fas fa-file-pdf text-danger"></i> เปิดดูเอกสาร PDF';
                 }
             });
+            // --------------------------------------------------------
+            
         } else {
             this.detailPdfItem.classList.add('d-none');
         }
