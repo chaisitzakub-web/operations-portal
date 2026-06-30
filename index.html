@@ -390,9 +390,9 @@
             <section id="viewTeamCalendar" class="content-view d-none">
                 <div class="glass-card style-calendar-card" style="height: 80vh; display: flex; flex-direction: column;">
                     <h3 class="card-title"><i class="far fa-calendar-alt"></i> ปฏิทินยุทธการส่วนกลาง</h3>
-                    <p class="text-muted">ตารางแสดงภารกิจและวันหยุดราชการประจำปี</p>
+                    <p class="text-muted">ตารางแสดงภารกิจและวันกำหนดส่งงานของฝ่ายยุทธการ</p>
                     <div class="iframe-calendar-wrapper" style="flex-grow: 1; margin-top: 15px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); background: #fff;">
-                        <iframe src="https://calendar.google.com/calendar/embed?height=600&wkst=1&bgcolor=%23ffffff&ctz=Asia%2FBangkok&showTitle=0&showPrint=0&showCalendars=0&showTz=0&src=th.thai%23holiday%40group.v.calendar.google.com&color=%230B8043" style="border-width:0" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
+                        <iframe src="https://calendar.google.com/calendar/embed?height=600&wkst=1&bgcolor=%23ffffff&ctz=Asia%2FBangkok&showTitle=0&showPrint=0&showCalendars=0&showTz=0&hl=th&src=c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf%40group.calendar.google.com&color=%231a73e8" style="border-width:0" width="100%" height="100%" frameborder="0" scrolling="no"></iframe>
                     </div>
                 </div>
             </section>
@@ -415,7 +415,6 @@
         </main>
     </div>
 
-    <!-- TASK MODAL -->
     <div class="modal-backdrop" id="taskModal">
         <div class="modal glass-card">
             <div class="modal-header">
@@ -499,7 +498,6 @@
         </div>
     </div>
 
-    <!-- TASK DETAIL MODAL -->
     <div class="modal-backdrop" id="taskDetailModal">
         <div class="modal modal-lg glass-card">
             <div class="modal-header">
@@ -511,15 +509,10 @@
             </div>
             <div class="modal-body">
                 <div class="detail-grid row-mobile-split">
-                    <div class="detail-main-info">
-                        <div class="detail-section">
+                    <div class="detail-main-info" style="display: flex; flex-direction: column;">
+                        <div class="detail-section" style="flex-grow: 1; display: flex; flex-direction: column;">
                             <h4 class="detail-sec-title">รายละเอียดภารกิจ</h4>
-                            <p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p>
-                        </div>
-                        <div class="detail-section">
-                            <h4 class="detail-sec-title"><i class="fas fa-receipt"></i> บันทึกประวัติการดำเนินงาน (Activity Log)</h4>
-                            <div class="activity-log" id="detailActivityLog">
-                                </div>
+                            <p class="detail-desc" id="detailDescription" style="flex-grow: 1; min-height: 280px; max-height: 480px; overflow-y: auto; margin-bottom: 0;">ข้อมูลรายละเอียดงานยุทธการ...</p>
                         </div>
                     </div>
                     <div class="detail-meta-info glass-card">
@@ -580,7 +573,6 @@
         </div>
     </div>
 
-    <!-- FLOATING CHAT WIDGET -->
     <div class="chat-widget" id="chatWidget">
         <div class="chat-header" id="chatHeader">
             <span><i class="fas fa-comments"></i> ช่องแชทสื่อสาร</span>
