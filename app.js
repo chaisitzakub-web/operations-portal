@@ -225,7 +225,6 @@ class App {
                 const parsed = JSON.parse(storedData);
                 this.staff = parsed.staff || DEFAULT_STAFF;
                 
-                // ตรวจสอบและลงทะเบียนบทบาทผู้ดูแลระบบ/เสธ ลงในโครงสร้างฐานข้อมูลสำรองในเครื่อง
                 if (!this.staff.find(m => m.id === 'leader')) {
                     this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true });
                 }
@@ -267,7 +266,6 @@ class App {
                 const staffData = await staffRes.json();
                 if (staffData && staffData.length > 0) {
                     this.staff = staffData;
-                    // ตรวจสอบความถูกต้องของสิทธิ์แอดมินหลังดึงข้อมูลจาก Cloudflare D1
                     if (!this.staff.find(m => m.id === 'leader')) {
                         this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true });
                     }
@@ -478,7 +476,6 @@ class App {
     switchRole(roleVal) {
         this.currentUser = roleVal;
         
-        // 🔒 ตรวจสอบสิทธิ์ระดับแอดมินยุทธการ (Leader, Asst. G3, และ DEV คุณชัยสิทธิ์)
         if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith') {
             const member = this.staff.find(m => m.id === roleVal);
             this.currentUserName.textContent = member.name;
@@ -490,7 +487,6 @@ class App {
             this.btnCreateTask.classList.remove('d-none');
             this.switchView('leader-dashboard');
         } else {
-            // 👤 สิทธิ์ระดับเจ้าหน้าที่ทั่วไป
             const member = this.staff.find(m => m.id === roleVal);
             if (member) {
                 this.currentUserName.textContent = member.name;
@@ -589,11 +585,9 @@ class App {
         }
     }
 
-    // 🛠️ อัปเดตการจัดกรอบกลุ่มประเภท Role Selector ให้แยกหมวดหมู่ DEV ร่วมกับฝ่ายเสธอย่างสวยงาม
     populateRoleSwitcher() {
         this.roleSelector.innerHTML = '';
         
-        // 1. กลุ่มระดับฝ่ายเสธ & ผู้ดูแลระบบ (DEV)
         const groupAdmin = document.createElement('optgroup');
         groupAdmin.label = '๑. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
         
@@ -611,7 +605,6 @@ class App {
         });
         this.roleSelector.appendChild(groupAdmin);
 
-        // 2. กลุ่มระดับเจ้าหน้าที่ผู้ปฏิบัติงานหลัก
         const groupStaff = document.createElement('optgroup');
         groupStaff.label = '๒. ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
         
@@ -628,7 +621,6 @@ class App {
 
     populateAssigneeDropdowns() {
         this.taskAssigneeInput.innerHTML = '';
-        // ลิสต์เฉพาะเจ้าหน้าที่ผู้รับงานหลัก (ไม่รวมกลุ่มแอดมิน เพื่อความแม่นยำในการจ่ายภารกิจ)
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
         workingStaff.forEach(member => {
             const opt = document.createElement('option');
@@ -719,7 +711,6 @@ class App {
         const completedData = [];
         const incompletedData = [];
 
-        // คำนวณกราฟเฉพาะกลุ่มเจ้าหน้าที่ปฏิบัติงานจริง
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
         workingStaff.forEach(member => {
             const memberTasks = this.tasks.filter(t => t.assigneeId === member.id);
@@ -851,7 +842,6 @@ class App {
 
     renderTeamMembers() {
         this.teamGridCards.innerHTML = '';
-        // ซ่อนกลุ่มบัญชีดูแลระบบออกจากการ์ดจัดการรายบุคคล เพื่อความเป็นระเบียบ
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
         workingStaff.forEach(member => {
             const memberTasks = this.tasks.filter(t => t.assigneeId === member.id);
@@ -1231,8 +1221,7 @@ class App {
         const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=none' };
 
-        this.detailTitle.textContent = task.name; 
-        this.detailDescription.textContent = task.description || 'ไม่มีรายละเอียดระบุไว้';
+        this.detailTitle.textContent = task.name; this.detailDescription.textContent = task.description || 'ไม่มีรายละเอียดระบุไว้';
         this.detailSecrecyBadge.textContent = task.secrecy; this.detailSecrecyBadge.className = 'detail-secrecy-badge';
         if (task.secrecy === 'ลับที่สุด') this.detailSecrecyBadge.classList.add('secrecy-top-secret'); else if (task.secrecy === 'ลับมาก') this.detailSecrecyBadge.classList.add('secrecy-secret'); else if (task.secrecy === 'ลับ') this.detailSecrecyBadge.classList.add('secrecy-confidential'); else this.detailSecrecyBadge.classList.add('secrecy-normal');
         
@@ -1315,7 +1304,6 @@ class App {
 
     renderDetailModalFooter(task) {
         this.detailModalFooter.innerHTML = '';
-        // 🛠️ กำหนดให้กลุ่มฝ่ายเสธ (Leader, Asst. G3, และ DEV) หรือเจ้าของงานชิ้นนั้นๆ สามารถบริหารจัดการแก้ไขได้เต็มระบบ
         if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith' || task.assigneeId === this.currentUser) {
             if (task.status === 'รอการอนุมัติ' && (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith')) {
                 const btnReject = document.createElement('button'); btnReject.className = 'btn btn-secondary'; btnReject.innerHTML = '<i class="fas fa-rotate-left"></i> ส่งกลับปรับปรุงยุทธการ';
@@ -1372,7 +1360,9 @@ class App {
 
     getSecrecyBadge(secrecy) {
         let badgeClass = 'secrecy-normal'; let icon = 'fa-lock-open';
-        if (secrecy === 'ลับ') { badgeClass = 'secrecy-confidential'; icon = 'fa-key'; } if (secrecy === 'ลับมาก') { badgeClass = 'secrecy-secret'; icon = 'fa-lock'; } if (secrecy === 'ลับที่สุด') { badgeClass = 'secrecy-top-secret'; border: 1px solid var(--color-overdue); icon = 'fa-shield-halved'; }
+        if (secrecy === 'ลับ') { badgeClass = 'secrecy-confidential'; icon = 'fa-key'; } 
+        if (secrecy === 'ลับมาก') { badgeClass = 'secrecy-secret'; icon = 'fa-lock'; } 
+        if (secrecy === 'ลับที่สุด') { badgeClass = 'secrecy-top-secret'; icon = 'fa-shield-halved'; }
         return `<span class="secrecy-badge ${badgeClass}"><i class="fas ${icon}"></i> ${secrecy}</span>`;
     }
 
