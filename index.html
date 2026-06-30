@@ -29,14 +29,16 @@
             <div class="user-profile-selector">
                 <label class="selector-label"><i class="fas fa-user-gear"></i> สลับบทบาทผู้ใช้</label>
                 <div class="custom-select-wrapper">
+                    <!-- ช่อง Selector ที่จะถูกแบ่งหมวดหมู่ย่อยโดย JavaScript -->
                     <select id="roleSelector" class="role-selector">
-                        </select>
+                    </select>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
+                <!-- เมนูสำหรับระดับฝ่ายเสธ (Leader & Asst. G3) -->
                 <div id="leaderNav" class="nav-group">
-                    <p class="nav-group-title">ผู้บังคับบัญชา (Leader)</p>
+                    <p class="nav-group-title">ระดับฝ่ายเสธ (Command & Staff)</p>
                     <a href="#" class="nav-link active" data-view="leader-dashboard" id="navLeaderDashboard">
                         <i class="fas fa-chart-line"></i>
                         <span>ภาพรวมยุทธการ</span>
@@ -59,8 +61,9 @@
                     </a>
                 </div>
 
+                <!-- เมนูสำหรับระดับเจ้าหน้าที่ -->
                 <div id="staffNav" class="nav-group d-none">
-                    <p class="nav-group-title">เจ้าหน้าที่ฝ่ายยุทธการ</p>
+                    <p class="nav-group-title">ระดับเจ้าหน้าที่ฝ่ายยุทธการ</p>
                     <a href="#" class="nav-link" data-view="staff-kanban" id="navStaffKanban">
                         <i class="fas fa-circle-nodes"></i>
                         <span>บอร์ดภารกิจ (Kanban)</span>
@@ -220,7 +223,7 @@
                         </select>
                     </div>
                     <div class="filter-group">
-                        <label for="filterStatus"><i class="fas fa-star-half-stroke"></i> สถานะ</label>
+                        <label for="filterStatus"><i class="fas fa-star-half-stroke"></i> Status</label>
                         <select id="filterStatus" class="form-control">
                             <option value="all">ทั้งหมด</option>
                             <option value="รอดำเนินการ">รอดำเนินการ</option>
@@ -387,7 +390,7 @@
                 </div>
             </section>
 
-            <!-- เมนู ปฏิทินยุทธการส่วนกลาง (ซิงค์ระบบปฏิทินของทีมยุทธการแล้ว) -->
+            <!-- เมนู ปฏิทินยุทธการส่วนกลาง -->
             <section id="viewTeamCalendar" class="content-view d-none">
                 <div class="glass-card style-calendar-card" style="height: 80vh; display: flex; flex-direction: column;">
                     <h3 class="card-title"><i class="far fa-calendar-alt"></i> ปฏิทินยุทธการส่วนกลาง</h3>
@@ -500,7 +503,7 @@
         </div>
     </div>
 
-    <!-- TASK DETAIL MODAL (ขยายกล่องรายละเอียดภารกิจกว้างเต็มฝั่งซ้าย ปลดเอา Activity Log ออกแล้ว) -->
+    <!-- TASK DETAIL MODAL -->
     <div class="modal-backdrop" id="taskDetailModal">
         <div class="modal modal-lg glass-card">
             <div class="modal-header">
@@ -512,10 +515,10 @@
             </div>
             <div class="modal-body">
                 <div class="detail-grid row-mobile-split">
-                    <div class="detail-main-info" style="display: flex; flex-direction: column;">
-                        <div class="detail-section" style="flex-grow: 1; display: flex; flex-direction: column;">
+                    <div class="detail-main-info">
+                        <div class="detail-section">
                             <h4 class="detail-sec-title">รายละเอียดภารกิจ</h4>
-                            <p class="detail-desc" id="detailDescription" style="flex-grow: 1; min-height: 280px; max-height: 480px; overflow-y: auto; margin-bottom: 0;">ข้อมูลรายละเอียดงานยุทธการ...</p>
+                            <p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p>
                         </div>
                     </div>
                     <div class="detail-meta-info glass-card">
