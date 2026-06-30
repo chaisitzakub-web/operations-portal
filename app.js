@@ -22,7 +22,6 @@ class AttachmentStore {
             };
         });
     }
-    // อัปเดตให้รองรับอาร์เรย์ไฟล์
     saveAttachment(taskId, files) {
         return new Promise((resolve, reject) => {
             if (!this.db) { reject("Database not initialized"); return; }
@@ -94,10 +93,17 @@ class App {
         this.attachments.init().then(async () => {
             await this.syncWithCloudflare();
             this.render();
+            // เริ่มต้นระบบ Polling เช็กแชททุกๆ 2 วินาที (2000 ms)
+            if (this.isCloudMode) {
+                setInterval(() => { this.syncChatOnly(); }, 2000);
+            }
         }).catch(async err => {
             console.error("IndexedDB initialization failed", err);
             await this.syncWithCloudflare();
             this.render();
+            if (this.isCloudMode) {
+                setInterval(() => { this.syncChatOnly(); }, 2000);
+            }
         });
     }
 
@@ -250,10 +256,47 @@ class App {
                 const tasksData = await tasksRes.json();
                 if (tasksData && tasksData.length > 0) this.tasks = tasksData;
             }
+            
+            // ดึงข้อความแชทครั้งแรก
+            const chatRes = await fetch('/api/chat');
+            if (chatRes.ok) {
+                const chatData = await chatRes.json();
+                if (chatData && chatData.length !== this.messages.length) {
+                    this.messages = chatData;
+                }
+            }
+
             this.saveData();
         } catch (err) {
             console.error("Cloudflare sync failed", err);
             this.showToast("การเชื่อมต่อคลาวด์ขัดข้อง กำลังใช้งานฐานข้อมูลสำรองในเครื่อง", "warning");
+        }
+    }
+
+    // ฟังก์ชันดึงเฉพาะแชท (ทำงานซ่อนอยู่หลังบ้าน)
+    async syncChatOnly() {
+        if (!this.isCloudMode) return;
+        try {
+            const chatRes = await fetch('/api/chat');
+            if (chatRes.ok) {
+                const chatData = await chatRes.json();
+                // ถ้ามีแชทใหม่เข้ามา
+                if (chatData && chatData.length > this.messages.length) {
+                    this.messages = chatData;
+                    this.saveData();
+                    this.renderChatMessages();
+                    
+                    if (this.chatOpen) {
+                        this.scrollToBottomChat();
+                    } else if (this.chatUnreadBadge) {
+                        // แจ้งเตือนข้อความใหม่
+                        this.chatUnreadBadge.classList.remove('d-none');
+                        this.chatUnreadBadge.textContent = '!';
+                    }
+                }
+            }
+        } catch (err) {
+            // ปล่อยผ่านเงียบๆ ไม่ต้องแจ้ง Error ถ้าแค่เน็ตกระตุกชั่วคราว
         }
     }
 
@@ -432,7 +475,7 @@ class App {
         if(this.chatOpen) {
             this.chatBody.classList.remove('d-none');
             this.chatToggleIcon.className = 'fas fa-chevron-down';
-            this.chatUnreadBadge.classList.add('d-none');
+            if (this.chatUnreadBadge) this.chatUnreadBadge.classList.add('d-none');
             this.scrollToBottomChat();
         } else {
             this.chatBody.classList.add('d-none');
@@ -440,7 +483,7 @@ class App {
         }
     }
 
-    sendMessage(text) {
+    async sendMessage(text) {
         const msg = {
             id: Date.now().toString(),
             senderId: this.currentUser,
@@ -448,10 +491,25 @@ class App {
             text: text,
             time: new Date().toISOString()
         };
+        
+        // เด้งโชว์ที่จอคนส่งทันที ไม่ต้องรอเซิร์ฟเวอร์ตอบ
         this.messages.push(msg);
         this.saveData();
         this.renderChatMessages();
         this.scrollToBottomChat();
+
+        // โยนขึ้นฐานข้อมูล D1
+        if (this.isCloudMode) {
+            try {
+                await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(msg)
+                });
+            } catch (err) {
+                console.error("Failed to send message", err);
+            }
+        }
     }
 
     renderChatMessages() {
@@ -970,7 +1028,6 @@ class App {
         this.taskStartDateInput.value = task.startDate; this.taskDeadlineInput.value = task.deadline;
         this.taskAssigneeInput.disabled = false; this.taskStatusInput.disabled = false;
         
-        // แสดงชื่อไฟล์หลายๆ ไฟล์ในฟอร์มแก้ไข
         if (task.status === 'เสร็จสิ้น') { 
             this.pdfUploadRow.style.display = 'grid'; 
             let fNames = '';
@@ -989,7 +1046,6 @@ class App {
 
     closeTaskModal() { this.taskModal.classList.remove('show'); }
 
-    // --- อัปเดตส่วนเซฟงานให้รองรับหลายไฟล์ ---
     async submitTaskForm() {
         const id = this.taskIdField.value; const name = this.taskNameInput.value.trim(); const description = this.taskDescriptionInput.value.trim();
         const assigneeId = this.taskAssigneeInput.value; const status = this.taskStatusInput.value; const urgency = this.taskUrgencyInput.value;
@@ -1015,7 +1071,6 @@ class App {
             this.tasks.push(taskObj);
         }
 
-        // ระบบบันทึกหลายไฟล์
         if (taskObj && status === 'เสร็จสิ้น' && this.taskPdfInput.files.length > 0) {
             const files = this.taskPdfInput.files;
             const fileNamesArray = Array.from(files).map(f => f.name);
@@ -1028,16 +1083,13 @@ class App {
                     for (let i = 0; i < files.length; i++) {
                         const file = files[i];
                         const base64Data = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(file); });
-                        
-                        // ถ้าระบบมีไฟล์เดียวใช้รหัสงานเดิม แต่ถ้าหลายไฟล์จะเติมเลขต่อท้ายเพื่อไม่ให้เซิร์ฟเวอร์เซฟทับกัน
                         const kvKey = files.length === 1 ? finalTaskId : `${finalTaskId}_${i}`;
-                        
                         const pdfRes = await fetch('/api/pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: kvKey, fileName: file.name, fileType: file.type, fileData: base64Data }) });
                         if (!pdfRes.ok) throw new Error("Cloud upload response not OK");
                     }
                     
                     taskObj.hasAttachment = true; 
-                    taskObj.attachmentName = JSON.stringify(fileNamesArray); // เก็บเป็น JSON Array 
+                    taskObj.attachmentName = JSON.stringify(fileNamesArray); 
                     taskObj.history.push({ time: now.toISOString(), action: `อัปโหลดไฟล์เอกสารยุทธการ จำนวน ${files.length} ฉบับ`, user: logUser }); 
                 } catch (err) { 
                     console.error(err); this.showToast('เกิดข้อผิดพลาดในการอัปโหลดไฟล์ไปยังเซิร์ฟเวอร์คลาวด์', 'danger'); 
@@ -1070,7 +1122,6 @@ class App {
         }
     }
 
-    // --- อัปเดตส่วนแสดงผลการเปิดหลายไฟล์ ---
     viewTaskDetails(taskId) {
         const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=none' };
