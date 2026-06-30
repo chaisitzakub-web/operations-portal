@@ -22,7 +22,6 @@ class AttachmentStore {
             };
         });
     }
-    // อัปเดตให้รองรับอาร์เรย์ไฟล์
     saveAttachment(taskId, files) {
         return new Promise((resolve, reject) => {
             if (!this.db) { reject("Database not initialized"); return; }
@@ -94,7 +93,6 @@ class App {
         this.attachments.init().then(async () => {
             await this.syncWithCloudflare();
             this.render();
-            // เริ่มต้นระบบ Polling เช็กแชททุกๆ 2 วินาที (2000 ms)
             if (this.isCloudMode) {
                 setInterval(() => { this.syncChatOnly(); }, 2000);
             }
@@ -128,6 +126,7 @@ class App {
             'leader-team': document.getElementById('viewLeaderTeam'),
             'staff-kanban': document.getElementById('viewStaffKanban'),
             'staff-tasks': document.getElementById('viewStaffTasks'),
+            'team-calendar': document.getElementById('viewTeamCalendar'),
             'data-repo': document.getElementById('viewDataRepo')
         };
 
@@ -176,6 +175,7 @@ class App {
         this.taskStatusInput = document.getElementById('taskStatus');
         this.taskUrgencyInput = document.getElementById('taskUrgency');
         this.taskSecrecyInput = document.getElementById('taskSecrecy');
+        this.taskReceiveDateInput = document.getElementById('taskReceiveDate');
         this.taskStartDateInput = document.getElementById('taskStartDate');
         this.taskDeadlineInput = document.getElementById('taskDeadline');
         this.btnCancelTaskModal = document.getElementById('btnCancelTaskModal');
@@ -190,10 +190,11 @@ class App {
         this.detailAssigneeName = document.getElementById('detailAssigneeName');
         this.detailStatusBadge = document.getElementById('detailStatusBadge');
         this.detailUrgencyBadge = document.getElementById('detailUrgencyBadge');
+        this.detailReceiveDate = document.getElementById('detailReceiveDate');
         this.detailStartDate = document.getElementById('detailStartDate');
         this.detailDeadline = document.getElementById('detailDeadline');
         this.detailOverdueBox = document.getElementById('detailOverdueBox');
-        this.detailActivityLog = document.getElementById('detailActivityLog');
+        // เอาการผูก ActivityLog ออก
         this.detailModalFooter = document.getElementById('detailModalFooter');
         this.taskDetailCloseBtn = document.getElementById('taskDetailCloseBtn');
 
@@ -292,9 +293,7 @@ class App {
                     }
                 }
             }
-        } catch (err) {
-            // ปล่อยผ่านเงียบๆ ไม่ต้องแจ้ง Error ถ้าแค่เน็ตกระตุกชั่วคราว
-        }
+        } catch (err) {}
     }
 
     setupEventListeners() {
@@ -421,6 +420,7 @@ class App {
             case 'leader-team': thaiTitle = 'บัญชีรายชื่อกำลังพล'; break;
             case 'staff-kanban': thaiTitle = 'กระดานปฏิบัติการทางยุทธการ'; break;
             case 'staff-tasks': thaiTitle = 'รายการปฏิบัติการเดี่ยว'; break;
+            case 'team-calendar': thaiTitle = 'ปฏิทินยุทธการส่วนกลาง'; break;
             case 'data-repo': thaiTitle = 'คลังข้อมูลส่วนกลาง (Google Drive)'; break;
         }
         this.pageTitle.innerHTML = thaiTitle;
@@ -450,7 +450,7 @@ class App {
                 this.currentUserAvatar.src = member.avatar;
                 this.leaderNav.classList.add('d-none');
                 this.staffNav.classList.remove('d-none');
-                this.btnCreateTask.classList.add('d-none');
+                this.btnCreateTask.classList.remove('d-none');
                 this.switchView('staff-kanban');
             }
         }
@@ -753,7 +753,7 @@ class App {
                 <td><div class="table-user"><img src="${member.avatar}" alt="Avatar" class="avatar-xs"><span class="table-user-name">${member.name}</span></div></td>
                 <td>${this.getUrgencyBadge(task.urgency)}</td>
                 <td>${this.getSecrecyBadge(task.secrecy)}</td>
-                <td>${task.startDate}</td>
+                <td>${task.receiveDate || task.startDate}</td>
                 <td class="${deadlineClass}">${task.deadline}${overdueBadgeText}</td>
                 <td>${this.getStatusBadge(task.status)}</td>
                 <td>
@@ -974,6 +974,7 @@ class App {
         const newStatus = column.getAttribute('data-status');
         if (task && task.status !== newStatus) {
             const oldStatus = task.status; task.status = newStatus;
+            // เราไม่ได้แสดงหน้าจอประวัติแล้ว แต่เก็บลอจิกประวัติไว้เพื่อความสมบูรณ์ของข้อมูลหลังบ้านเผื่อใช้ในอนาคต
             task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
             this.saveData(); this.renderStaffKanban();
             if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
@@ -996,7 +997,7 @@ class App {
             else if (this.isDueSoon(task)) { deadlineClass = 'deadline-warning'; overdueText = ' <span class="badge-progress status-badge">ด่วน (24ชม)</span>'; }
             tr.innerHTML = `
                 <td><strong>${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger"></i>' : ''}</strong><div style="font-size: 11px; color: var(--text-muted); max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description}</div></td>
-                <td>${this.getUrgencyBadge(task.urgency)}</td><td>${this.getSecrecyBadge(task.secrecy)}</td><td>${task.startDate}</td>
+                <td>${this.getUrgencyBadge(task.urgency)}</td><td>${this.getSecrecyBadge(task.secrecy)}</td><td>${task.receiveDate || task.startDate}</td>
                 <td class="${deadlineClass}">${task.deadline}${overdueText}</td><td>${this.getStatusBadge(task.status)}</td>
                 <td><button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="app.viewTaskDetails('${task.id}')"><i class="fas fa-expand"></i> ตรวจรายละเอียด</button></td>
             `;
@@ -1005,10 +1006,18 @@ class App {
     }
 
     openCreateTaskModal() {
-        this.taskForm.reset(); this.taskModalTitle.innerHTML = '<i class="fas fa-circle-plus"></i> มอบหมายภารกิจยุทธการใหม่'; this.taskIdField.value = '';
-        const today = new Date().toISOString().split('T')[0]; this.taskStartDateInput.value = today; this.taskDeadlineInput.value = today;
-        if (this.currentUser !== 'leader') { this.taskAssigneeInput.value = this.currentUser; this.taskAssigneeInput.disabled = true; }
-        else { this.taskAssigneeInput.disabled = false; }
+        this.taskForm.reset(); 
+        this.taskModalTitle.innerHTML = '<i class="fas fa-circle-plus"></i> มอบหมายภารกิจยุทธการใหม่'; 
+        this.taskIdField.value = '';
+        const today = new Date().toISOString().split('T')[0]; 
+        
+        this.taskReceiveDateInput.value = today;
+        this.taskStartDateInput.value = today; 
+        this.taskDeadlineInput.value = today;
+        
+        this.taskAssigneeInput.value = this.currentUser === 'leader' ? this.staff[0].id : this.currentUser;
+        this.taskAssigneeInput.disabled = false;
+        
         this.taskStatusInput.value = 'รอดำเนินการ'; this.taskStatusInput.disabled = false;
         this.pdfUploadRow.style.display = 'none'; this.taskPdfInput.value = ''; this.pdfUploadStatus.textContent = 'ไม่มีไฟล์ที่แนบไว้';
         this.taskModal.classList.add('show');
@@ -1019,7 +1028,11 @@ class App {
         this.taskModalTitle.innerHTML = '<i class="fas fa-edit"></i> แก้ไขข้อมูลยุทธการ'; this.taskIdField.value = task.id;
         this.taskNameInput.value = task.name; this.taskDescriptionInput.value = task.description; this.taskAssigneeInput.value = task.assigneeId;
         this.taskStatusInput.value = task.status; this.taskUrgencyInput.value = task.urgency; this.taskSecrecyInput.value = task.secrecy;
-        this.taskStartDateInput.value = task.startDate; this.taskDeadlineInput.value = task.deadline;
+        
+        this.taskReceiveDateInput.value = task.receiveDate || task.startDate;
+        this.taskStartDateInput.value = task.startDate; 
+        this.taskDeadlineInput.value = task.deadline;
+        
         this.taskAssigneeInput.disabled = false; this.taskStatusInput.disabled = false;
         
         if (task.status === 'เสร็จสิ้น') { 
@@ -1043,25 +1056,28 @@ class App {
     async submitTaskForm() {
         const id = this.taskIdField.value; const name = this.taskNameInput.value.trim(); const description = this.taskDescriptionInput.value.trim();
         const assigneeId = this.taskAssigneeInput.value; const status = this.taskStatusInput.value; const urgency = this.taskUrgencyInput.value;
-        const secrecy = this.taskSecrecyInput.value; const startDate = this.taskStartDateInput.value; const deadline = this.taskDeadlineInput.value;
-        if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง (Deadline) ไม่สามารถอยู่ก่อนวันเริ่มต้นปฏิบัติงานได้'); return; }
+        const secrecy = this.taskSecrecyInput.value; 
+        const receiveDate = this.taskReceiveDateInput.value;
+        const startDate = this.taskStartDateInput.value; 
+        const deadline = this.taskDeadlineInput.value;
+        
+        if (new Date(startDate) < new Date(receiveDate)) { alert('ข้อผิดพลาด: วันที่เริ่มปฏิบัติงาน ต้องไม่ก่อนวันที่เอกสารเข้า'); return; }
+        if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง (Deadline) ต้องไม่ก่อนวันเริ่มต้นปฏิบัติงาน'); return; }
+        
         const now = new Date(); const logUser = this.currentUser === 'leader' ? 'หัวหน้าฝ่ายยุทธการ' : this.currentUserName.textContent;
         let finalTaskId = id; let taskObj = null;
 
         if (id) {
             taskObj = this.tasks.find(t => t.id === id);
             if (taskObj) {
-                const changes = [];
-                if (taskObj.name !== name) changes.push(`เปลี่ยนชื่องานเป็น "${name}"`);
-                if (taskObj.assigneeId !== assigneeId) changes.push(`มอบหมายงานให้: ${this.staff.find(m => m.id === assigneeId)?.name}`);
-                if (taskObj.status !== status) changes.push(`เปลี่ยนสถานะเป็น: ${status}`);
                 taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status;
-                taskObj.urgency = urgency; taskObj.secrecy = secrecy; taskObj.startDate = startDate; taskObj.deadline = deadline;
-                if (changes.length > 0) taskObj.history.push({ time: now.toISOString(), action: `แก้ไขข้อมูล: ${changes.join(', ')}`, user: logUser });
+                taskObj.urgency = urgency; taskObj.secrecy = secrecy; 
+                taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline;
+                taskObj.history.push({ time: now.toISOString(), action: `แก้ไขข้อมูลโดย: ${logUser}`, user: logUser });
             }
         } else {
             finalTaskId = `task-${Date.now()}`;
-            taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, startDate, deadline, history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้นให้เจ้าหน้าที่`, user: logUser }] };
+            taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้นให้เจ้าหน้าที่`, user: logUser }] };
             this.tasks.push(taskObj);
         }
 
@@ -1120,21 +1136,24 @@ class App {
         const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=none' };
 
-        this.detailTitle.textContent = task.name; this.detailDescription.textContent = task.description || 'ไม่มีรายละเอียดระบุไว้';
+        this.detailTitle.textContent = task.name; 
+        this.detailDescription.textContent = task.description || 'ไม่มีรายละเอียดระบุไว้';
         this.detailSecrecyBadge.textContent = task.secrecy; this.detailSecrecyBadge.className = 'detail-secrecy-badge';
         if (task.secrecy === 'ลับที่สุด') this.detailSecrecyBadge.classList.add('secrecy-top-secret'); else if (task.secrecy === 'ลับมาก') this.detailSecrecyBadge.classList.add('secrecy-secret'); else if (task.secrecy === 'ลับ') this.detailSecrecyBadge.classList.add('secrecy-confidential'); else this.detailSecrecyBadge.classList.add('secrecy-normal');
         
         this.detailAssigneeAvatar.src = member.avatar; this.detailAssigneeName.textContent = member.name;
         this.detailStatusBadge.innerHTML = this.getStatusBadge(task.status); this.detailUrgencyBadge.innerHTML = this.getUrgencyBadge(task.urgency);
-        this.detailStartDate.textContent = task.startDate; this.detailDeadline.textContent = task.deadline;
+        
+        this.detailReceiveDate.textContent = task.receiveDate || task.startDate;
+        this.detailStartDate.textContent = task.startDate; 
+        this.detailDeadline.textContent = task.deadline;
 
         if (this.isOverdue(task)) { this.detailOverdueBox.innerHTML = '<i class="fas fa-triangle-exclamation"></i> ภารกิจนี้เลยกำหนดส่งความมั่นคง!'; this.detailOverdueBox.classList.remove('d-none'); }
         else if (this.isDueSoon(task)) { this.detailOverdueBox.innerHTML = '<i class="fas fa-hourglass-half text-warning"></i> ภารกิจกำลังเข้าใกล้กำหนดส่งพิจารณา'; this.detailOverdueBox.classList.remove('d-none'); this.detailOverdueBox.className = 'meta-item text-warning'; }
         else { this.detailOverdueBox.classList.add('d-none'); }
 
-        this.renderActivityLog(task.history); this.renderDetailModalFooter(task);
+        this.renderDetailModalFooter(task);
 
-        // --- สร้างลิงก์สำหรับ Google Calendar และ Outlook ---
         const titleCal = encodeURIComponent(`[ยุทธการ] ${task.name}`);
         const detailsCal = encodeURIComponent(`รายละเอียด:\n${task.description}\n\nสถานะ: ${task.status}\nความเร่งด่วน: ${task.urgency}\nชั้นความลับ: ${task.secrecy}`);
         
@@ -1150,7 +1169,6 @@ class App {
         const btnOutlook = document.getElementById('btnOutlookCal');
         if(btnGoogle) btnGoogle.href = googleCalUrl;
         if(btnOutlook) btnOutlook.href = outlookCalUrl;
-        // ----------------------------------------------------
 
         if (task.hasAttachment) {
             this.detailPdfItem.classList.remove('d-none');
@@ -1200,17 +1218,6 @@ class App {
         this.taskDetailModal.classList.add('show');
     }
 
-    renderActivityLog(history) {
-        this.detailActivityLog.innerHTML = '';
-        const sortedHistory = [...history].sort((a, b) => new Date(b.time) - new Date(a.time));
-        sortedHistory.forEach((log, index) => {
-            const date = new Date(log.time); const formattedTime = date.toLocaleString('th-TH', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-            const item = document.createElement('div'); item.className = 'activity-item' + (index === 0 ? ' active-step' : '');
-            item.innerHTML = `<strong>${log.action}</strong><span class="activity-time">${formattedTime} • ปฏิบัติโดย: ${log.user}</span>`;
-            this.detailActivityLog.appendChild(item);
-        });
-    }
-
     renderDetailModalFooter(task) {
         this.detailModalFooter.innerHTML = '';
         if (this.currentUser === 'leader') {
@@ -1253,8 +1260,11 @@ class App {
     closeDetailModal() { this.taskDetailModal.classList.remove('show'); }
 
     getUrgencyBadge(urgency) {
-        let badgeClass = 'urgency-urgent'; if (urgency === 'ด่วนมาก') badgeClass = 'urgency-v-urgent'; if (urgency === 'ด่วนที่สุด') badgeClass = 'urgency-most-urgent';
-        return `<span class="urgency-badge ${badgeClass}"><i class="fas fa-triangle-exclamation"></i> ${urgency}</span>`;
+        let badgeClass = 'urgency-normal'; let icon = 'fa-info-circle';
+        if (urgency === 'ด่วน') { badgeClass = 'urgency-urgent'; icon = 'fa-triangle-exclamation'; }
+        if (urgency === 'ด่วนมาก') { badgeClass = 'urgency-v-urgent'; icon = 'fa-triangle-exclamation'; }
+        if (urgency === 'ด่วนที่สุด') { badgeClass = 'urgency-most-urgent'; icon = 'fa-triangle-exclamation'; }
+        return `<span class="urgency-badge ${badgeClass}"><i class="fas ${icon}"></i> ${urgency}</span>`;
     }
 
     getSecrecyBadge(secrecy) {
