@@ -692,7 +692,6 @@ class App {
         });
     }
 
-    // ฟังก์ชันคำนวณวันหมดอายุที่หายไป (ใส่กลับมาแล้ว)
     isOverdue(task) {
         if (task.status === 'เสร็จสิ้น') return false;
         const now = new Date();
@@ -1304,6 +1303,8 @@ class App {
                 taskObj.urgency = urgency; taskObj.secrecy = secrecy; 
                 taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline;
                 
+                // 🛠️ ตรวจสอบให้แน่ใจว่างานเก่าๆ มี Array history ก่อนบันทึก ป้องกันการเซฟแล้วค้าง
+                if (!taskObj.history) taskObj.history = [];
                 if (changes.length > 0) taskObj.history.push({ time: now.toISOString(), action: `แก้ไขข้อมูล: ${changes.join(', ')}`, user: logUser });
             }
         } else {
@@ -1331,6 +1332,7 @@ class App {
                     
                     taskObj.hasAttachment = true; 
                     taskObj.attachmentName = JSON.stringify(fileNamesArray); 
+                    if (!taskObj.history) taskObj.history = [];
                     taskObj.history.push({ time: now.toISOString(), action: `อัปโหลดไฟล์เอกสารยุทธการ จำนวน ${files.length} ฉบับ`, user: logUser }); 
                 } catch (err) { 
                     console.error(err); this.showToast('เกิดข้อผิดพลาดในการอัปโหลดไฟล์ไปยังเซิร์ฟเวอร์คลาวด์', 'danger'); 
@@ -1340,6 +1342,7 @@ class App {
                     await this.attachments.saveAttachment(finalTaskId, files); 
                     taskObj.hasAttachment = true; 
                     taskObj.attachmentName = JSON.stringify(fileNamesArray); 
+                    if (!taskObj.history) taskObj.history = [];
                     taskObj.history.push({ time: now.toISOString(), action: `อัปโหลดไฟล์เอกสารยุทธการ จำนวน ${files.length} ฉบับ`, user: logUser }); 
                 } catch (err) { console.error(err); }
             }
@@ -1481,6 +1484,8 @@ class App {
         const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         const oldStatus = task.status; task.status = newStatus;
         const now = new Date(); const logUser = this.currentUserName.textContent;
+        // 🛠️ ตรวจสอบ Array history ให้แน่ใจอีกครั้งในฟังก์ชันเปลี่ยนสถานะงาน
+        if (!task.history) task.history = [];
         task.history.push({ time: now.toISOString(), action: `${actionDescription} (จาก "${oldStatus}" -> "${newStatus}")`, user: logUser });
         this.saveData(); this.closeDetailModal();
         if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
