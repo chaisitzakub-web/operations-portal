@@ -367,7 +367,6 @@ class App {
             column.addEventListener('drop', (e) => this.handleDrop(e, column));
         });
 
-        // 🔀 ตรวจจับปุ่มสลับโหมด ตาราง และ ไทม์ไลน์
         const btnTable = document.getElementById('btnMasterTableMode');
         const btnGantt = document.getElementById('btnMasterGanttMode');
         if (btnTable && btnGantt) {
@@ -389,7 +388,6 @@ class App {
             });
         }
 
-        // เชื่อมโยงระบบค้นหา คัดกรอง คัดแยกให้ทำงานร่วมกันทั้ง 2 โหมด
         const filters = [this.filterAssignee, this.filterUrgency, this.filterSecrecy, this.filterStatus];
         filters.forEach(filter => { 
             filter.addEventListener('change', () => {
@@ -512,6 +510,7 @@ class App {
 
     switchRole(roleVal) {
         this.currentUser = roleVal;
+        
         if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith') {
             const member = this.staff.find(m => m.id === roleVal);
             this.currentUserName.textContent = member.name;
@@ -693,7 +692,25 @@ class App {
         });
     }
 
-    // 🔍 แยกฟังก์ชันการกรองข้อมูลภารกิจออกมาเป็นส่วนกลางเพื่อให้ใช้ร่วมกันได้ทั้งโหมดตารางและ Gantt Chart
+    // ฟังก์ชันคำนวณวันหมดอายุที่หายไป (ใส่กลับมาแล้ว)
+    isOverdue(task) {
+        if (task.status === 'เสร็จสิ้น') return false;
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const deadline = new Date(task.deadline);
+        deadline.setHours(0, 0, 0, 0);
+        return now > deadline;
+    }
+
+    isDueSoon(task) {
+        if (task.status === 'เสร็จสิ้น') return false;
+        if (this.isOverdue(task)) return false;
+        const now = new Date();
+        const deadline = new Date(task.deadline);
+        const diffHours = (deadline - now) / (1000 * 60 * 60);
+        return diffHours >= 0 && diffHours <= 24;
+    }
+
     getFilteredTasks() {
         const fAssignee = this.filterAssignee ? this.filterAssignee.value : 'all';
         const fUrgency = this.filterUrgency ? this.filterUrgency.value : 'all';
@@ -1131,7 +1148,6 @@ class App {
         });
     }
 
-    // 🗓️ ฟังก์ชันเรนเดอร์ระบบติดตามสถานะแผนงานภาพรวม (Gantt Chart Timeline) แบบ Pure JS
     renderGanttChart(containerId, filteredTasks) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -1147,7 +1163,6 @@ class App {
             return new Date(parts[0], parts[1] - 1, parts[2]);
         };
 
-        // หาช่วงวันเริ่มแรกสุด และวันสิ้นสุดหลังสุดของทุกภารกิจ
         let minDate = null;
         let maxDate = null;
         filteredTasks.forEach(t => {
@@ -1157,7 +1172,6 @@ class App {
             if (!maxDate || dEnd > maxDate) maxDate = dEnd;
         });
 
-        // คำนวณจำนวนคอลัมน์วันทั้งหมด
         const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
         const dates = [];
         for (let i = 0; i < totalDays; i++) {
@@ -1168,7 +1182,6 @@ class App {
 
         let html = `<div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">`;
 
-        // 1. หัวตารางบอกวันที่
         html += `<div style="display: flex; align-items: center; background: rgba(148,163,184,0.06); border-bottom: 1px solid var(--glass-border); font-weight: 600; padding: 8px 0; border-radius: 6px 6px 0 0;">`;
         html += `<div style="width: 220px; min-width: 220px; padding-left: 12px; color: var(--text-muted); font-size: 12px;">ภารกิจ / ผู้รับผิดชอบ</div>`;
         html += `<div style="display: flex; flex-grow: 1; position: relative;">`;
@@ -1180,7 +1193,6 @@ class App {
         });
         html += `</div></div>`;
 
-        // 2. แถวแถบแผนงานยุทธการรายบุคคล
         filteredTasks.forEach(task => {
             const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ' };
             const dStart = parseDate(task.startDate);
@@ -1189,7 +1201,6 @@ class App {
             const startIndex = Math.round((dStart - minDate) / (1000 * 60 * 60 * 24));
             const duration = Math.round((dEnd - dStart) / (1000 * 60 * 60 * 24)) + 1;
             
-            // จับคู่สีแถบไทม์ไลน์ตามสถานะ
             let barColor = 'var(--color-todo)';
             if (task.status === 'กำลังทำ') barColor = 'var(--color-progress)';
             if (task.status === 'รอการอนุมัติ') barColor = 'var(--color-review)';
@@ -1198,13 +1209,11 @@ class App {
 
             html += `<div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--glass-border); transition: background 0.2s;" onmouseover="this.style.background='rgba(148,163,184,0.03)'" onmouseout="this.style.background='transparent'">`;
             
-            // ฝั่งซ้าย: ชื่องานและยศข้าราชการ
             html += `<div style="width: 220px; min-width: 220px; padding-left: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;" onclick="app.viewTaskDetails('${task.id}')">
                 <div style="font-weight: 600; color: var(--text-primary); font-size: 13px;">${task.name}</div>
                 <small style="color: var(--text-muted); font-size: 10.5px;"><i class="far fa-user"></i> ${member.name.split(' ')[0]} ${member.name.split(' ')[1] || ''}</small>
             </div>`;
             
-            // ฝั่งขวา: แถบความคืบหน้าคำนวณตำแหน่งพิกเซล (Left - Width)
             html += `<div style="display: flex; flex-grow: 1; position: relative; height: 32px; background-image: linear-gradient(to right, rgba(148,163,184,0.04) 1px, transparent 1px); background-size: 50px 100%;">`;
             
             const leftPos = startIndex * 50;
