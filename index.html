@@ -239,8 +239,13 @@
                 <div class="table-container glass-card">
                     <div class="table-header">
                         <h3 class="card-title"><i class="fas fa-folder-open"></i> รายการภารกิจฝ่ายยุทธการทั้งหมด</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-primary" id="btnMasterTableMode" style="padding: 6px 12px; font-size: 12px;"><i class="fas fa-table"></i> ตาราง</button>
+                            <button class="btn btn-secondary" id="btnMasterGanttMode" style="padding: 6px 12px; font-size: 12px;"><i class="fas fa-stream"></i> ไทม์ไลน์ (Gantt)</button>
+                        </div>
                     </div>
-                    <div class="table-responsive">
+                    
+                    <div class="table-responsive" id="masterTableArea">
                         <table class="data-table" id="masterTasksTable">
                             <thead>
                                 <tr>
@@ -257,6 +262,12 @@
                             <tbody>
                                 </tbody>
                         </table>
+                    </div>
+
+                    <div id="masterGanttArea" class="d-none" style="padding: 5px 0;">
+                        <div style="overflow-x: auto; background: rgba(0, 0, 0, 0.15); border-radius: 12px; border: 1px solid var(--glass-border); padding: 10px; -webkit-overflow-scrolling: touch;">
+                            <div id="masterGanttChart" style="min-width: 900px;"></div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -509,10 +520,10 @@
             </div>
             <div class="modal-body">
                 <div class="detail-grid row-mobile-split">
-                    <div class="detail-main-info">
-                        <div class="detail-section">
+                    <div class="detail-main-info" style="display: flex; flex-direction: column;">
+                        <div class="detail-section" style="flex-grow: 1; display: flex; flex-direction: column;">
                             <h4 class="detail-sec-title">รายละเอียดภารกิจ</h4>
-                            <p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p>
+                            <p class="detail-desc" id="detailDescription" style="flex-grow: 1; min-height: 280px; max-height: 480px; overflow-y: auto; margin-bottom: 0;">ข้อมูลรายละเอียดงานยุทธการ...</p>
                         </div>
                     </div>
                     <div class="detail-meta-info glass-card">
