@@ -305,7 +305,21 @@ body {
 .modal-body { padding: 24px; overflow-y: auto; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--glass-border); display: flex; justify-content: flex-end; gap: 12px; }
 
+/* 🛠️ แก้ไขให้หน้าต่างฟอร์ม Scroll ได้ถูกต้อง และปุ่มบันทึกไม่โดนดันหายไป */
+.modal form {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+/* 🛠️ จัดเรียงช่องวันที่ 3 ช่อง (เอกสารเข้า, เริ่ม, กำหนดส่ง) ให้อยู่บรรทัดเดียวกันสวยๆ */
+.row-mobile-three { 
+    grid-template-columns: repeat(3, 1fr); 
+}
+
 .form-group { margin-bottom: 18px; display: flex; flex-direction: column; gap: 8px; }
 .form-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
 .required { color: var(--color-overdue); margin-right: 2px; }
@@ -369,6 +383,8 @@ body {
     .kanban-column { min-width: 270px; max-width: 270px; flex-shrink: 0; scroll-snap-align: start; max-height: calc(100vh - 200px); }
     
     .row-mobile-split { grid-template-columns: 1fr !important; }
+    
+    /* 🛠️ บังคับให้บนมือถือ วันที่หดเหลือ 2 บรรทัด ไม่เบียดกัน */
     .row-mobile-three { grid-template-columns: 1fr 1fr !important; gap: 8px; }
     .row-mobile-three .form-group:nth-child(3) { grid-column: span 2; }
     
