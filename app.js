@@ -62,7 +62,7 @@ class AttachmentStore {
     }
 }
 
-// 👮 รายชื่อกำลังพลเริ่มต้น (เรียงตามลำดับชั้นยศทหารอย่างถูกต้อง)
+// 👮 รายชื่อระดับฝ่ายเสธ ผู้ดูแลระบบ และกำลังพลเริ่มต้น
 const DEFAULT_STAFF = [
     { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
     { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
@@ -81,6 +81,9 @@ class App {
         this.currentUser = 'leader'; 
         this.currentView = 'leader-dashboard';
         this.isCloudMode = false;
+        
+        // กำหนดโหมดตั้งต้นของตารางเป็น 'table'
+        this.tasksViewMode = 'table'; 
         
         this.statusChartInstance = null;
         this.staffChartInstance = null;
@@ -364,9 +367,40 @@ class App {
             column.addEventListener('drop', (e) => this.handleDrop(e, column));
         });
 
+        // 🔀 ตรวจจับปุ่มสลับโหมด ตาราง และ ไทม์ไลน์
+        const btnTable = document.getElementById('btnMasterTableMode');
+        const btnGantt = document.getElementById('btnMasterGanttMode');
+        if (btnTable && btnGantt) {
+            btnTable.addEventListener('click', () => {
+                this.tasksViewMode = 'table';
+                btnTable.className = 'btn btn-primary';
+                btnGantt.className = 'btn btn-secondary';
+                document.getElementById('masterTableArea').classList.remove('d-none');
+                document.getElementById('masterGanttArea').classList.add('d-none');
+                this.renderMasterTaskListTable();
+            });
+            btnGantt.addEventListener('click', () => {
+                this.tasksViewMode = 'gantt';
+                btnTable.className = 'btn btn-secondary';
+                btnGantt.className = 'btn btn-primary';
+                document.getElementById('masterTableArea').classList.add('d-none');
+                document.getElementById('masterGanttArea').classList.remove('d-none');
+                this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+            });
+        }
+
+        // เชื่อมโยงระบบค้นหา คัดกรอง คัดแยกให้ทำงานร่วมกันทั้ง 2 โหมด
         const filters = [this.filterAssignee, this.filterUrgency, this.filterSecrecy, this.filterStatus];
-        filters.forEach(filter => { filter.addEventListener('change', () => this.renderMasterTaskListTable()); });
-        this.searchTask.addEventListener('input', () => this.renderMasterTaskListTable());
+        filters.forEach(filter => { 
+            filter.addEventListener('change', () => {
+                if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+                else this.renderMasterTaskListTable();
+            }); 
+        });
+        this.searchTask.addEventListener('input', () => {
+            if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+            else this.renderMasterTaskListTable();
+        });
 
         this.taskStatusInput.addEventListener('change', () => {
             this.pdfUploadRow.style.display = (this.taskStatusInput.value === 'เสร็จสิ้น') ? 'grid' : 'none';
@@ -467,7 +501,10 @@ class App {
         this.pageTitle.innerHTML = thaiTitle;
 
         if (viewName === 'leader-dashboard') this.renderLeaderDashboard();
-        else if (viewName === 'leader-tasks') this.renderMasterTaskListTable();
+        else if (viewName === 'leader-tasks') {
+            if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+            else this.renderMasterTaskListTable();
+        }
         else if (viewName === 'leader-team') this.renderTeamMembers();
         else if (viewName === 'staff-kanban') this.renderStaffKanban();
         else if (viewName === 'staff-tasks') this.renderStaffTaskListTable();
@@ -475,7 +512,6 @@ class App {
 
     switchRole(roleVal) {
         this.currentUser = roleVal;
-        
         if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith') {
             const member = this.staff.find(m => m.id === roleVal);
             this.currentUserName.textContent = member.name;
@@ -585,7 +621,6 @@ class App {
         }
     }
 
-    // 👮 ฟังก์ชันช่วยคำนวณและประเมินค่าน้ำหนักชั้นยศทหารเพื่อใช้จัดเรียงลำดับใน Dropdown
     getRankWeight(name) {
         if (name.startsWith('พ.ท.')) return 10;
         if (name.startsWith('พ.ต.')) return 20;
@@ -598,14 +633,12 @@ class App {
         if (name.startsWith('ส.อ.')) return 90;
         if (name.startsWith('ส.ท.')) return 100;
         if (name.startsWith('ส.ต.')) return 110;
-        return 500; // หากไม่ระบุยศธรรมดาให้อยู่ท้ายสุด
+        return 500; 
     }
 
-    // 🛠️ ปรับปรุงหัวข้อแท็บเป็นเลขอารบิก 1, 2 และจัดลำดับคนในกลุ่มตามชั้นยศทหารอย่างถูกต้อง
     populateRoleSwitcher() {
         this.roleSelector.innerHTML = '';
         
-        // 1. กลุ่มระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)
         const groupAdmin = document.createElement('optgroup');
         groupAdmin.label = '1. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
         
@@ -623,13 +656,10 @@ class App {
         });
         this.roleSelector.appendChild(groupAdmin);
 
-        // 2. กลุ่มระดับเจ้าหน้าที่ฝ่ายยุทธการ (จัดเรียงลำดับชั้นยศ พ.ท. -> ส.ต.)
         const groupStaff = document.createElement('optgroup');
         groupStaff.label = '2. ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
         
         const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith' && !m.isStaffAdmin);
-        
-        // สั่ง Sort จัดเรียงรายชื่อลูกทีมตามค่าน้ำหนักยศทหาร
         generalStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         
         generalStaff.forEach(member => {
@@ -645,8 +675,6 @@ class App {
     populateAssigneeDropdowns() {
         this.taskAssigneeInput.innerHTML = '';
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
-        
-        // มอบหมายงานก็เรียงตามยศทหารเพื่อให้หาชื่อได้ง่ายเช่นกัน
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         
         workingStaff.forEach(member => {
@@ -665,22 +693,26 @@ class App {
         });
     }
 
-    isOverdue(task) {
-        if (task.status === 'เสร็จสิ้น') return false;
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const deadline = new Date(task.deadline);
-        deadline.setHours(0, 0, 0, 0);
-        return now > deadline;
-    }
+    // 🔍 แยกฟังก์ชันการกรองข้อมูลภารกิจออกมาเป็นส่วนกลางเพื่อให้ใช้ร่วมกันได้ทั้งโหมดตารางและ Gantt Chart
+    getFilteredTasks() {
+        const fAssignee = this.filterAssignee ? this.filterAssignee.value : 'all';
+        const fUrgency = this.filterUrgency ? this.filterUrgency.value : 'all';
+        const fSecrecy = this.filterSecrecy ? this.filterSecrecy.value : 'all';
+        const fStatus = this.filterStatus ? this.filterStatus.value : 'all';
+        const fSearch = this.searchTask ? this.searchTask.value.toLowerCase().trim() : '';
 
-    isDueSoon(task) {
-        if (task.status === 'เสร็จสิ้น') return false;
-        if (this.isOverdue(task)) return false;
-        const now = new Date();
-        const deadline = new Date(task.deadline);
-        const diffHours = (deadline - now) / (1000 * 60 * 60);
-        return diffHours >= 0 && diffHours <= 24;
+        return this.tasks.filter(task => {
+            const matchAssignee = (fAssignee === 'all') || (task.assigneeId === fAssignee);
+            const matchUrgency = (fUrgency === 'all') || (task.urgency === fUrgency);
+            const matchSecrecy = (fSecrecy === 'all') || (task.secrecy === fSecrecy);
+            let matchStatus = true;
+            if (fStatus !== 'all') {
+                if (fStatus === 'overdue') matchStatus = this.isOverdue(task);
+                else matchStatus = (task.status === fStatus);
+            }
+            const matchSearch = !fSearch || task.name.toLowerCase().includes(fSearch) || (task.description && task.description.toLowerCase().includes(fSearch));
+            return matchAssignee && matchUrgency && matchSecrecy && matchStatus && matchSearch;
+        });
     }
 
     renderLeaderDashboard() {
@@ -814,25 +846,9 @@ class App {
     }
 
     renderMasterTaskListTable() {
+        if (!this.masterTasksTableBody) return;
         this.masterTasksTableBody.innerHTML = '';
-        const fAssignee = this.filterAssignee.value;
-        const fUrgency = this.filterUrgency.value;
-        const fSecrecy = this.filterSecrecy.value;
-        const fStatus = this.filterStatus.value;
-        const fSearch = this.searchTask.value.toLowerCase().trim();
-
-        const filteredTasks = this.tasks.filter(task => {
-            const matchAssignee = (fAssignee === 'all') || (task.assigneeId === fAssignee);
-            const matchUrgency = (fUrgency === 'all') || (task.urgency === fUrgency);
-            const matchSecrecy = (fSecrecy === 'all') || (task.secrecy === fSecrecy);
-            let matchStatus = true;
-            if (fStatus !== 'all') {
-                if (fStatus === 'overdue') matchStatus = this.isOverdue(task);
-                else matchStatus = (task.status === fStatus);
-            }
-            const matchSearch = !fSearch || task.name.toLowerCase().includes(fSearch) || task.description.toLowerCase().includes(fSearch);
-            return matchAssignee && matchUrgency && matchSecrecy && matchStatus && matchSearch;
-        });
+        const filteredTasks = this.getFilteredTasks();
 
         if (filteredTasks.length === 0) {
             this.masterTasksTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;"><i class="fas fa-box-open" style="font-size: 30px; margin-bottom: 10px; display: block;"></i>ไม่พบข้อมูลยุทธการที่ต้องการค้นหา</td></tr>`;
@@ -851,7 +867,7 @@ class App {
             tr.innerHTML = `
                 <td>
                     <strong>${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger" title="มีไฟล์เอกสารแนบ" style="margin-left: 5px;"></i>' : ''}</strong>
-                    <div style="font-size: 11px; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description}</div>
+                    <div style="font-size: 11px; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description || ''}</div>
                 </td>
                 <td><div class="table-user"><img src="${member.avatar}" alt="Avatar" class="avatar-xs"><span class="table-user-name">${member.name}</span></div></td>
                 <td>${this.getUrgencyBadge(task.urgency)}</td>
@@ -1113,6 +1129,96 @@ class App {
             `;
             this.staffTasksTableBody.appendChild(tr);
         });
+    }
+
+    // 🗓️ ฟังก์ชันเรนเดอร์ระบบติดตามสถานะแผนงานภาพรวม (Gantt Chart Timeline) แบบ Pure JS
+    renderGanttChart(containerId, filteredTasks) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        if (filteredTasks.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted);"><i class="fas fa-box-open" style="font-size:30px; margin-bottom:10px; display:block;"></i>ไม่พบข้อมูลยุทธการที่ต้องการแสดงไทม์ไลน์</div>`;
+            return;
+        }
+
+        const parseDate = (str) => {
+            if(!str) return new Date();
+            const parts = str.split('-');
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        };
+
+        // หาช่วงวันเริ่มแรกสุด และวันสิ้นสุดหลังสุดของทุกภารกิจ
+        let minDate = null;
+        let maxDate = null;
+        filteredTasks.forEach(t => {
+            const dStart = parseDate(t.startDate);
+            const dEnd = parseDate(t.deadline);
+            if (!minDate || dStart < minDate) minDate = dStart;
+            if (!maxDate || dEnd > maxDate) maxDate = dEnd;
+        });
+
+        // คำนวณจำนวนคอลัมน์วันทั้งหมด
+        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+        const dates = [];
+        for (let i = 0; i < totalDays; i++) {
+            const d = new Date(minDate);
+            d.setDate(d.getDate() + i);
+            dates.push(d);
+        }
+
+        let html = `<div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">`;
+
+        // 1. หัวตารางบอกวันที่
+        html += `<div style="display: flex; align-items: center; background: rgba(148,163,184,0.06); border-bottom: 1px solid var(--glass-border); font-weight: 600; padding: 8px 0; border-radius: 6px 6px 0 0;">`;
+        html += `<div style="width: 220px; min-width: 220px; padding-left: 12px; color: var(--text-muted); font-size: 12px;">ภารกิจ / ผู้รับผิดชอบ</div>`;
+        html += `<div style="display: flex; flex-grow: 1; position: relative;">`;
+        dates.forEach(d => {
+            html += `<div style="width: 50px; min-width: 50px; text-align: center; font-size: 11px; color: var(--text-muted); border-left: 1px solid var(--glass-border);">
+                <div>${d.getDate()}</div>
+                <div style="font-size: 8.5px; opacity: 0.6; font-weight: 500;">${d.toLocaleString('th-TH', { month: 'short' })}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+
+        // 2. แถวแถบแผนงานยุทธการรายบุคคล
+        filteredTasks.forEach(task => {
+            const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ' };
+            const dStart = parseDate(task.startDate);
+            const dEnd = parseDate(task.deadline);
+            
+            const startIndex = Math.round((dStart - minDate) / (1000 * 60 * 60 * 24));
+            const duration = Math.round((dEnd - dStart) / (1000 * 60 * 60 * 24)) + 1;
+            
+            // จับคู่สีแถบไทม์ไลน์ตามสถานะ
+            let barColor = 'var(--color-todo)';
+            if (task.status === 'กำลังทำ') barColor = 'var(--color-progress)';
+            if (task.status === 'รอการอนุมัติ') barColor = 'var(--color-review)';
+            if (task.status === 'เสร็จสิ้น') barColor = 'var(--color-done)';
+            if (this.isOverdue(task)) barColor = 'var(--color-overdue)';
+
+            html += `<div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--glass-border); transition: background 0.2s;" onmouseover="this.style.background='rgba(148,163,184,0.03)'" onmouseout="this.style.background='transparent'">`;
+            
+            // ฝั่งซ้าย: ชื่องานและยศข้าราชการ
+            html += `<div style="width: 220px; min-width: 220px; padding-left: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;" onclick="app.viewTaskDetails('${task.id}')">
+                <div style="font-weight: 600; color: var(--text-primary); font-size: 13px;">${task.name}</div>
+                <small style="color: var(--text-muted); font-size: 10.5px;"><i class="far fa-user"></i> ${member.name.split(' ')[0]} ${member.name.split(' ')[1] || ''}</small>
+            </div>`;
+            
+            // ฝั่งขวา: แถบความคืบหน้าคำนวณตำแหน่งพิกเซล (Left - Width)
+            html += `<div style="display: flex; flex-grow: 1; position: relative; height: 32px; background-image: linear-gradient(to right, rgba(148,163,184,0.04) 1px, transparent 1px); background-size: 50px 100%;">`;
+            
+            const leftPos = startIndex * 50;
+            const widthPos = duration * 50;
+            
+            html += `<div style="position: absolute; left: ${leftPos}px; width: ${widthPos}px; height: 24px; top: 4px; background: ${barColor}; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10.5px; font-weight: 700; padding: 0 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);" title="${task.name} (${task.startDate} ถึง ${task.deadline})" onclick="app.viewTaskDetails('${task.id}')">
+                ${duration >= 2 ? task.status : '•'}
+            </div>`;
+            
+            html += `</div></div>`;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
     }
 
     openCreateTaskModal() {
