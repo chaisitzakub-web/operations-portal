@@ -8,10 +8,28 @@ export async function onRequestPost(context) {
       const event = body.events[0];
       
       if (event.type === 'message' && event.message.type === 'text') {
-        const text = event.message.text;
+        const text = event.message.text.trim();
         
-        // ใช้ includes เพื่อดักจับคำว่า "ขอไอดีกลุ่ม" แม้จะพิมพ์ @แท็กชื่อบอท มาด้วยก็ตาม
-        if (text.includes('ขอไอดีกลุ่ม')) {
+        // 1. เพิ่มคำสั่งดักจับคำว่า "ขอไอดี" สำหรับคุยตัวต่อตัวในแชทเดี่ยว
+        if (text === 'ขอไอดี') {
+          const myUserId = event.source.userId;
+          const replyText = `🎯 รหัส User ID ไลน์ส่วนตัวของคุณคือ:\n${myUserId}\n\nก๊อปปี้รหัสยาวๆ นี้ไปใส่ในระบบได้เลยครับ!`;
+          
+          await fetch('https://api.line.me/v2/bot/message/reply', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              replyToken: event.replyToken,
+              messages: [{ type: 'text', text: replyText }]
+            })
+          });
+        }
+        
+        // 2. คำสั่งเดิมสำหรับขอไอดีกลุ่ม (เผื่อเอาไว้ใช้ในอนาคต)
+        else if (text.includes('ขอไอดีกลุ่ม')) {
           let replyText = "กรุณาพิมพ์คำสั่งนี้ใน 'กลุ่มไลน์' เท่านั้นครับ";
           
           if (event.source.type === 'group') {
