@@ -66,8 +66,13 @@ class AttachmentStore {
 const DEFAULT_STAFF = [
     { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
     { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
-    { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 3 },
-    { id: 'staff-1', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak', rankWeight: 20 },
+    
+    // 📢 ด่านสำคัญ: ให้ จ.ส.ท. ชัยสิทธิ์ พิมพ์คำว่า "ขอไอดี" ในไลน์บอท แล้วเอารหัสตัว U ที่บอทตอบกลับมาใส่ตรงคำว่า 'ใส่รหัสตัวUของจสทชัยสิทธิ์ตรงนี้' ได้เลยครับ
+    { id: 'U093959610f37c88a31fe2911a7dd4bdd', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 3 },
+    
+    // 🎯 คืนรหัสไลน์ของพี่ให้ พ.ต. สมศักดิ์ เรียบร้อยครับ
+    { id: '......', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak', rankWeight: 20 },
+    
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30 },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40 }
 ];
@@ -82,7 +87,6 @@ class App {
         this.currentView = 'leader-dashboard';
         this.isCloudMode = false;
         
-        // กำหนดโหมดตั้งต้นของตารางเป็น 'table'
         this.tasksViewMode = 'table'; 
         
         this.statusChartInstance = null;
@@ -235,7 +239,10 @@ class App {
                     this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true });
                 }
                 if (!this.staff.find(m => m.id === 'dev-chaisith')) {
-                    this.staff.splice(2, 0, { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true });
+                    const chaisithObj = this.staff.find(m => m.name.includes('ชัยสิทธิ์'));
+                    if(!chaisithObj) {
+                        this.staff.splice(2, 0, { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true });
+                    }
                 }
 
                 this.tasks = parsed.tasks || DEFAULT_TASKS;
@@ -274,9 +281,6 @@ class App {
                     }
                     if (!this.staff.find(m => m.id === 'asst-g3')) {
                         this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true });
-                    }
-                    if (!this.staff.find(m => m.id === 'dev-chaisith')) {
-                        this.staff.splice(2, 0, { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true });
                     }
                 }
             }
@@ -511,7 +515,7 @@ class App {
     switchRole(roleVal) {
         this.currentUser = roleVal;
         
-        if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith') {
+        if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal.startsWith('dev-')) {
             const member = this.staff.find(m => m.id === roleVal);
             this.currentUserName.textContent = member.name;
             this.currentUserRoleText.textContent = member.role.split(' (')[0];
@@ -542,7 +546,7 @@ class App {
         this.populateRoleSwitcher();
         this.populateAssigneeDropdowns();
         this.renderChatMessages(); 
-        if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith') this.switchView('leader-dashboard');
+        if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser.startsWith('dev-')) this.switchView('leader-dashboard');
         else this.switchView('staff-kanban');
     }
 
@@ -559,33 +563,38 @@ class App {
         }
     }
 
-    // 📡 ฟังก์ชันสำหรับยิงส่งข้อความ Broadcast ตรงเข้าแชทส่วนตัวของเจ้าหน้าที่ทุกคน
+    // 📡 ฟังก์ชันส่งข้อความแจ้งเตือนตรงเข้าแชทส่วนตัวตาม User ID (Push Message)
     async sendLineAlert(task, actionText) {
         const token = "FImi+2fAsu7TjhlYnK7ohFA7MNQAWFcH+v0WI2xPS/ZykdBVeFio6t88aWKtXzus/f+KBxvY8qjOjx9aCYYiQLdcKROB0zjoiBTr5SUSQyHsxPevurZXYi7uzXVaH5db7EBKrLPEiWU1uuI7eJh5GwdB04t89/1O/w1cDnyilFU=";
         
         const member = this.staff.find(m => m.id === task.assigneeId);
         const assigneeName = member ? member.name : 'ไม่ระบุ';
         
-        // รูปแบบข้อความรายงานภารกิจที่จะเด้งใน LINE
+        // 🚨 ดักจับตรวจสอบรหัสผู้รับ: ถ้า ID ไม่ได้เป็นรหัสตัว U ของ LINE จะไม่ยิงออกไปเพื่อป้องกันระบบเบื้องหลังแจ้งเตือนล้มเหลว
+        if (!task.assigneeId || !task.assigneeId.startsWith('U')) {
+            console.log("LINE Alert Skip: ผู้รับผิดชอบยังไม่มีการผูกบัญชี LINE User ID ประจำตัว");
+            return;
+        }
+        
         const messageText = `🚨 [รายงานภารกิจ ฝยก.พล.ร.4]\n📌 ภารกิจ: ${task.name}\n👤 ผู้รับผิดชอบ: ${assigneeName}\n🔄 การดำเนินการ: ${actionText}\n🚦 สถานะปัจจุบัน: ${task.status}\n⏰ กำหนดส่ง: ${task.deadline}\n\nตรวจสอบรายละเอียดเพิ่มเติมผ่านระบบยุทธการ.NET ครับ 🫡`;
 
         const payload = {
+            to: task.assigneeId,
             messages: [{ type: "text", text: messageText }]
         };
 
         if (this.isCloudMode) {
             try {
-                // ยิงผ่านฟังก์ชัน notify หลังบ้านที่เรากำลังจะสร้างในขั้นตอนแรก
                 await fetch('/api/notify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token: token, payload: payload })
                 });
             } catch (err) {
-                console.error("Failed to send LINE broadcast alert", err);
+                console.error("Failed to send LINE push message alert", err);
             }
         } else {
-            console.log("LINE Broadcast Test:", messageText);
+            console.log("LINE Push Alert Test:", messageText);
         }
     }
 
@@ -593,7 +602,7 @@ class App {
         let senderNameStr = this.currentUserName.textContent;
         if (this.currentUser === 'leader') senderNameStr = 'หัวหน้าฝ่ายยุทธการ';
         else if (this.currentUser === 'asst-g3') senderNameStr = 'ผช.หน.ฝยก.พล.ร.4';
-        else if (this.currentUser === 'dev-chaisith') senderNameStr = 'จ.ส.ท. ชัยสิทธิ์ (DEV)';
+        else if (this.currentUser.startsWith('dev-')) senderNameStr = 'จ.ส.ท. ชัยสิทธิ์ (DEV)';
 
         const msg = {
             id: Date.now().toString(),
@@ -671,13 +680,13 @@ class App {
         const groupAdmin = document.createElement('optgroup');
         groupAdmin.label = '1. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
         
-        const adminMembers = this.staff.filter(m => m.id === 'leader' || m.id === 'asst-g3' || m.id === 'dev-chaisith' || m.isStaffAdmin === true);
+        const adminMembers = this.staff.filter(m => m.id === 'leader' || m.id === 'asst-g3' || m.id.startsWith('dev-') || m.isStaffAdmin === true);
         adminMembers.forEach(member => {
             const opt = document.createElement('option');
             opt.value = member.id;
             if(member.id === 'leader') opt.textContent = 'หัวหน้าฝ่ายยุทธการ (Leader)';
             else if(member.id === 'asst-g3') opt.textContent = 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)';
-            else if(member.id === 'dev-chaisith') opt.textContent = 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง (DEV)';
+            else if(member.id.startsWith('dev-')) opt.textContent = 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง (DEV)';
             else opt.textContent = member.name;
             
             opt.selected = (this.currentUser === member.id);
@@ -688,7 +697,7 @@ class App {
         const groupStaff = document.createElement('optgroup');
         groupStaff.label = '2. ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
         
-        const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith' && !m.isStaffAdmin);
+        const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && !m.id.startsWith('dev-') && !m.isStaffAdmin);
         generalStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         
         generalStaff.forEach(member => {
@@ -703,7 +712,9 @@ class App {
 
     populateAssigneeDropdowns() {
         this.taskAssigneeInput.innerHTML = '';
-        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
+        
+        // ให้ผู้ดูแลระบบ/เสธ/และผู้พัฒนาปรากฏขึ้นในกล่องมอบหมายเพื่อเลือกปฏิบัติงานร่วมด้วยได้
+        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         
         workingStaff.forEach(member => {
@@ -838,7 +849,7 @@ class App {
         const completedData = [];
         const incompletedData = [];
 
-        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
+        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
 
         workingStaff.forEach(member => {
@@ -872,7 +883,7 @@ class App {
 
     renderTeamProgressTable() {
         this.teamProgressTableBody.innerHTML = '';
-        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
+        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
 
         workingStaff.forEach(member => {
@@ -957,7 +968,7 @@ class App {
 
     renderTeamMembers() {
         this.teamGridCards.innerHTML = '';
-        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith');
+        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.forEach(member => {
             const memberTasks = this.tasks.filter(t => t.assigneeId === member.id);
             const done = memberTasks.filter(t => t.status === 'เสร็จสิ้น').length;
@@ -1292,10 +1303,10 @@ class App {
         this.taskStartDateInput.value = today; 
         this.taskDeadlineInput.value = today;
         
-        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
+        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser.startsWith('dev-'));
         
         if (isAdmin) {
-            this.taskAssigneeInput.value = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith')[0]?.id || '';
+            this.taskAssigneeInput.value = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3')[0]?.id || '';
             this.taskAssigneeInput.disabled = false;
         } else {
             this.taskAssigneeInput.value = this.currentUser;
@@ -1320,7 +1331,7 @@ class App {
         this.taskStartDateInput.value = task.startDate; 
         this.taskDeadlineInput.value = task.deadline;
         
-        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
+        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser.startsWith('dev-'));
         this.taskAssigneeInput.disabled = !isAdmin; 
         this.taskStatusInput.disabled = false;
         
@@ -1550,8 +1561,8 @@ class App {
 
     renderDetailModalFooter(task) {
         this.detailModalFooter.innerHTML = '';
-        if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith' || task.assigneeId === this.currentUser) {
-            if (task.status === 'รอการอนุมัติ' && (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith')) {
+        if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser.startsWith('dev-') || task.assigneeId === this.currentUser) {
+            if (task.status === 'รอการอนุมัติ' && (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser.startsWith('dev-'))) {
                 const btnReject = document.createElement('button'); btnReject.className = 'btn btn-secondary'; btnReject.innerHTML = '<i class="fas fa-rotate-left"></i> ส่งกลับปรับปรุงยุทธการ';
                 btnReject.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'ส่งคืนแผนงานเพื่อให้ทบทวนแก้ไขใหม่')); this.detailModalFooter.appendChild(btnReject);
                 const btnApprove = document.createElement('button'); btnApprove.className = 'btn btn-success'; btnApprove.innerHTML = '<i class="fas fa-signature"></i> ลงนามอนุมัติงานยุทธการ';
