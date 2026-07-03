@@ -692,6 +692,7 @@ class App {
         });
     }
 
+    // ฟังก์ชันคำนวณวันหมดอายุที่หายไป (ใส่กลับมาแล้ว)
     isOverdue(task) {
         if (task.status === 'เสร็จสิ้น') return false;
         const now = new Date();
@@ -1239,8 +1240,16 @@ class App {
         this.taskStartDateInput.value = today; 
         this.taskDeadlineInput.value = today;
         
-        this.taskAssigneeInput.value = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith')[0]?.id || '';
-        this.taskAssigneeInput.disabled = false;
+        // 🔒 ตรวจสอบสิทธิ์: ถ้าเป็น Admin ให้เลือกคนอื่นได้ ถ้าเป็นเจ้าหน้าที่ทั่วไป ล็อคให้มอบหมายได้แค่ตัวเอง
+        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
+        
+        if (isAdmin) {
+            this.taskAssigneeInput.value = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith')[0]?.id || '';
+            this.taskAssigneeInput.disabled = false;
+        } else {
+            this.taskAssigneeInput.value = this.currentUser;
+            this.taskAssigneeInput.disabled = true; // ล็อคไม่ให้เปลี่ยนชื่อ
+        }
         
         this.taskStatusInput.value = 'รอดำเนินการ'; this.taskStatusInput.disabled = false;
         this.pdfUploadRow.style.display = 'none'; this.taskPdfInput.value = ''; this.pdfUploadStatus.textContent = 'ไม่มีไฟล์ที่แนบไว้';
@@ -1257,7 +1266,11 @@ class App {
         this.taskStartDateInput.value = task.startDate; 
         this.taskDeadlineInput.value = task.deadline;
         
-        this.taskAssigneeInput.disabled = false; this.taskStatusInput.disabled = false;
+        // 🔒 ตรวจสอบสิทธิ์: ล็อคไม่ให้เจ้าหน้าที่ทั่วไปโยนงานให้คนอื่นตอนแก้ไข
+        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
+        this.taskAssigneeInput.disabled = !isAdmin; 
+        
+        this.taskStatusInput.disabled = false;
         
         if (task.status === 'เสร็จสิ้น') { 
             this.pdfUploadRow.style.display = 'grid'; 
@@ -1303,7 +1316,6 @@ class App {
                 taskObj.urgency = urgency; taskObj.secrecy = secrecy; 
                 taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline;
                 
-                // 🛠️ ตรวจสอบให้แน่ใจว่างานเก่าๆ มี Array history ก่อนบันทึก ป้องกันการเซฟแล้วค้าง
                 if (!taskObj.history) taskObj.history = [];
                 if (changes.length > 0) taskObj.history.push({ time: now.toISOString(), action: `แก้ไขข้อมูล: ${changes.join(', ')}`, user: logUser });
             }
