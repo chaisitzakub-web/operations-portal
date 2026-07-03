@@ -400,10 +400,8 @@ class App {
             else this.renderMasterTaskListTable();
         });
 
-        // 🛠️ เอา Event Listener ที่ผูกการซ่อน/โชว์กล่อง PDF กับสถานะ "เสร็จสิ้น" ออกไป
-        // เพื่อให้กล่องอัปโหลดแสดงผลได้ตลอดเวลาไม่ว่าสถานะใดก็ตาม
         this.taskStatusInput.addEventListener('change', () => {
-            this.pdfUploadRow.style.display = 'grid'; // บังคับแสดงผลเสมอ
+            this.pdfUploadRow.style.display = 'grid'; 
         });
 
         this.taskPdfInput.addEventListener('change', (e) => {
@@ -558,6 +556,36 @@ class App {
         } else {
             this.chatBody.classList.add('d-none');
             this.chatToggleIcon.className = 'fas fa-chevron-up';
+        }
+    }
+
+    // 📡 ฟังก์ชันสำหรับยิงส่งข้อความ Broadcast ตรงเข้าแชทส่วนตัวของเจ้าหน้าที่ทุกคน
+    async sendLineAlert(task, actionText) {
+        const token = "FImi+2fAsu7TjhlYnK7ohFA7MNQAWFcH+v0WI2xPS/ZykdBVeFio6t88aWKtXzus/f+KBxvY8qjOjx9aCYYiQLdcKROB0zjoiBTr5SUSQyHsxPevurZXYi7uzXVaH5db7EBKrLPEiWU1uuI7eJh5GwdB04t89/1O/w1cDnyilFU=";
+        
+        const member = this.staff.find(m => m.id === task.assigneeId);
+        const assigneeName = member ? member.name : 'ไม่ระบุ';
+        
+        // รูปแบบข้อความรายงานภารกิจที่จะเด้งใน LINE
+        const messageText = `🚨 [รายงานภารกิจ ฝยก.พล.ร.4]\n📌 ภารกิจ: ${task.name}\n👤 ผู้รับผิดชอบ: ${assigneeName}\n🔄 การดำเนินการ: ${actionText}\n🚦 สถานะปัจจุบัน: ${task.status}\n⏰ กำหนดส่ง: ${task.deadline}\n\nตรวจสอบรายละเอียดเพิ่มเติมผ่านระบบยุทธการ.NET ครับ 🫡`;
+
+        const payload = {
+            messages: [{ type: "text", text: messageText }]
+        };
+
+        if (this.isCloudMode) {
+            try {
+                // ยิงผ่านฟังก์ชัน notify หลังบ้านที่เรากำลังจะสร้างในขั้นตอนแรก
+                await fetch('/api/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: token, payload: payload })
+                });
+            } catch (err) {
+                console.error("Failed to send LINE broadcast alert", err);
+            }
+        } else {
+            console.log("LINE Broadcast Test:", messageText);
         }
     }
 
@@ -750,7 +778,6 @@ class App {
         this.renderTeamProgressTable();
     }
 
-    // 🗂️ ฟังก์ชัน: นำทางไปยังหน้าแฟ้มภารกิจ พร้อมตั้งค่าตัวกรองอัตโนมัติจากแดชบอร์ด
     navigateToTasksWithFilter(statusValue) {
         if (this.filterAssignee) this.filterAssignee.value = 'all';
         if (this.filterUrgency) this.filterUrgency.value = 'all';
@@ -1136,6 +1163,7 @@ class App {
         if (task && task.status !== newStatus) {
             const oldStatus = task.status; task.status = newStatus;
             task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
+            this.sendLineAlert(task, `เปลี่ยนสถานะผ่านกระดานเป็น "${newStatus}"`);
             this.saveData(); this.renderStaffKanban();
             if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
             this.showToast(`ย้ายภารกิจไปยัง "${newStatus}" เรียบร้อย`);
@@ -1254,29 +1282,6 @@ class App {
         container.innerHTML = html;
     }
 
-    // 🗂️ ฟังก์ชัน: นำทางไปยังหน้าแฟ้มภารกิจ พร้อมตั้งค่าตัวกรองสถานะงานโดยอัตโนมัติจากแดชบอร์ด
-    navigateToTasksWithFilter(statusValue) {
-        if (this.filterAssignee) this.filterAssignee.value = 'all';
-        if (this.filterUrgency) this.filterUrgency.value = 'all';
-        if (this.filterSecrecy) this.filterSecrecy.value = 'all';
-        if (this.searchTask) this.searchTask.value = '';
-
-        if (this.filterStatus) {
-            this.filterStatus.value = statusValue;
-        }
-
-        this.switchView('leader-tasks');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-        let statusName = "ทั้งหมด";
-        if(statusValue === 'กำลังทำ') statusName = "กำลังดำเนินการ";
-        if(statusValue === 'รอการอนุมัติ') statusName = "รอการอนุมัติ";
-        if(statusValue === 'เสร็จสิ้น') statusName = "เสร็จสิ้น";
-        if(statusValue === 'overdue') statusName = "เลยกำหนดส่ง";
-        
-        this.showToast(`กำลังแสดงรายการ: ${statusName}`, 'info');
-    }
-
     openCreateTaskModal() {
         this.taskForm.reset(); 
         this.taskModalTitle.innerHTML = '<i class="fas fa-circle-plus"></i> มอบหมายภารกิจยุทธการใหม่'; 
@@ -1351,26 +1356,31 @@ class App {
         
         const now = new Date(); const logUser = this.currentUserName.textContent;
         let finalTaskId = id; let taskObj = null;
+        let lineAlertMessage = '';
 
         if (id) {
             taskObj = this.tasks.find(t => t.id === id);
             if (taskObj) {
                 const changes = [];
-                if (taskObj.name !== name) changes.push(`เปลี่ยนชื่องานเป็น "${name}"`);
-                if (taskObj.assigneeId !== assigneeId) changes.push(`มอบหมายงานให้: ${this.staff.find(m => m.id === assigneeId)?.name}`);
-                if (taskObj.status !== status) changes.push(`เปลี่ยนสถานะเป็น: ${status}`);
+                if (taskObj.name !== name) changes.push(`เปลี่ยนหัวข้อเป็น "${name}"`);
+                if (taskObj.assigneeId !== assigneeId) changes.push(`เปลี่ยนผู้ถือรับผิดชอบงานเป็น: ${this.staff.find(m => m.id === assigneeId)?.name}`);
+                if (taskObj.status !== status) changes.push(`ปรับเปลี่ยนสถานะเป็น: ${status}`);
                 
                 taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status;
                 taskObj.urgency = urgency; taskObj.secrecy = secrecy; 
                 taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline;
                 
                 if (!taskObj.history) taskObj.history = [];
-                if (changes.length > 0) taskObj.history.push({ time: now.toISOString(), action: `แก้ไขข้อมูล: ${changes.join(', ')}`, user: logUser });
+                if (changes.length > 0) {
+                    taskObj.history.push({ time: now.toISOString(), action: `แก้ไขข้อมูล: ${changes.join(', ')}`, user: logUser });
+                    lineAlertMessage = `อัปเดตข้อมูล: ${changes.join(', ')}`;
+                }
             }
         } else {
             finalTaskId = `task-${Date.now()}`;
             taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้นให้เจ้าหน้าที่`, user: logUser }] };
             this.tasks.push(taskObj);
+            lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
         }
 
         if (taskObj && this.taskPdfInput.files.length > 0) {
@@ -1394,6 +1404,7 @@ class App {
                     taskObj.attachmentName = JSON.stringify(fileNamesArray); 
                     if (!taskObj.history) taskObj.history = [];
                     taskObj.history.push({ time: now.toISOString(), action: `อัปโหลดไฟล์เอกสารยุทธการ จำนวน ${files.length} ฉบับ`, user: logUser }); 
+                    lineAlertMessage += ` (และมีการแนบเอกสารยุทธการเพิ่มเติม ${files.length} ฉบับ)`;
                 } catch (err) { 
                     console.error(err); this.showToast('เกิดข้อผิดพลาดในการอัปโหลดไฟล์ไปยังเซิร์ฟเวอร์คลาวด์', 'danger'); 
                 }
@@ -1411,13 +1422,18 @@ class App {
             this.btnSubmitTaskModal.innerHTML = 'บันทึกภารกิจ';
         }
 
+        // 🚨 สั่งยิงแจ้งเตือนผ่านบอท LINE
+        if (lineAlertMessage !== '') {
+            this.sendLineAlert(taskObj, lineAlertMessage);
+        }
+
         this.saveData(); this.closeTaskModal();
         if (this.isCloudMode) { try { await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskObj) }); } catch (err) { console.error(err); } }
         this.switchView(this.currentView); this.showToast(id ? 'อัปเดตข้อมูลสำเร็จ' : 'บันทึกและมอบหมายงานสำเร็จ');
     }
 
     deleteTask(taskId) {
-        if (confirm('คุณแน่ิกดเลิกและลบภารกิจนี้?')) {
+        if (confirm('คุณแน่ใจหรือไม่ว่าต้องการยกเลิกและลบภารกิจนี้?')) {
             this.tasks = this.tasks.filter(t => t.id !== taskId);
             this.attachments.deleteAttachment(taskId).catch(e => e);
             this.saveData();
@@ -1508,6 +1524,27 @@ class App {
                 });
             }
         } else { this.detailPdfItem.classList.add('d-none'); }
+
+        // 📝 แสดงผลประวัติกิจกรรมงานยุทธการ
+        const historyLogContainer = document.getElementById('detailHistoryLog');
+        if (historyLogContainer) {
+            historyLogContainer.innerHTML = '';
+            if (task.history && task.history.length > 0) {
+                const sortedHistory = [...task.history].sort((a, b) => new Date(b.time) - new Date(a.time));
+                sortedHistory.forEach(log => {
+                    const timeStr = new Date(log.time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+                    historyLogContainer.innerHTML += `
+                        <div style="display: flex; gap: 10px; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 5px;">
+                            <div style="min-width: 110px; font-weight: 600; color: var(--primary);"><i class="far fa-clock"></i> ${timeStr}</div>
+                            <div><span style="color: var(--text-primary);">${log.user}</span>: ${log.action}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                historyLogContainer.innerHTML = '<i>ยังไม่มีประวัติการดำเนินการ</i>';
+            }
+        }
+
         this.taskDetailModal.classList.add('show');
     }
 
@@ -1516,9 +1553,9 @@ class App {
         if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith' || task.assigneeId === this.currentUser) {
             if (task.status === 'รอการอนุมัติ' && (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith')) {
                 const btnReject = document.createElement('button'); btnReject.className = 'btn btn-secondary'; btnReject.innerHTML = '<i class="fas fa-rotate-left"></i> ส่งกลับปรับปรุงยุทธการ';
-                btnReject.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'ส่งกลับเพื่อทบทวนแผนงานยุทธการ')); this.detailModalFooter.appendChild(btnReject);
+                btnReject.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'ส่งคืนแผนงานเพื่อให้ทบทวนแก้ไขใหม่')); this.detailModalFooter.appendChild(btnReject);
                 const btnApprove = document.createElement('button'); btnApprove.className = 'btn btn-success'; btnApprove.innerHTML = '<i class="fas fa-signature"></i> ลงนามอนุมัติงานยุทธการ';
-                btnApprove.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'เสร็จสิ้น', 'ฝ่ายเสธลงนามอนุมัติภารกิจเสร็จสิ้นเรียบร้อย')); this.detailModalFooter.appendChild(btnApprove);
+                btnApprove.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'เสร็จสิ้น', 'ฝ่ายเสธทำการตรวจและลงนามอนุมัติแผนงานเรียบร้อย')); this.detailModalFooter.appendChild(btnApprove);
             } else {
                 const btnEdit = document.createElement('button'); btnEdit.className = 'btn btn-primary'; btnEdit.innerHTML = '<i class="fas fa-edit"></i> แก้ไขภารกิจ';
                 btnEdit.addEventListener('click', () => { this.closeDetailModal(); this.openEditTaskModal(task.id); }); this.detailModalFooter.appendChild(btnEdit);
@@ -1528,10 +1565,10 @@ class App {
         } else {
             if (task.status === 'รอดำเนินการ') {
                 const btnStart = document.createElement('button'); btnStart.className = 'btn btn-primary'; btnStart.innerHTML = '<i class="fas fa-play"></i> เริ่มปฏิบัติภารกิจ';
-                btnStart.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'รับเรื่องและเริ่มปฏิบัติการ')); this.detailModalFooter.appendChild(btnStart);
+                btnStart.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'กดรับทราบและเปลี่ยนสถานะเป็นเริ่มลงมือปฏิบัติการ')); this.detailModalFooter.appendChild(btnStart);
             } else if (task.status === 'กำลังทำ') {
                 const btnReview = document.createElement('button'); btnReview.className = 'btn btn-success'; btnReview.innerHTML = '<i class="fas fa-paper-plane"></i> ส่งรายงานแผนต่อหัวหน้า';
-                btnReview.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'รอการอนุมัติ', 'ร่างแผนงานเรียบร้อยและส่งขอการอนุมัติยุทธการ')); this.detailModalFooter.appendChild(btnReview);
+                btnReview.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'รอการอนุมัติ', 'สรุปเนื้อหาผลงานเสร็จสิ้นและยื่นเสนอขออนุมัติ')); this.detailModalFooter.appendChild(btnReview);
             } else if (task.status === 'รอการอนุมัติ') {
                 const label = document.createElement('span'); label.style.fontSize = '12px'; label.style.color = 'var(--text-muted)'; label.innerHTML = '<i class="fas fa-hourglass-half"></i> รายงานกำลังรออนุมัติ...'; this.detailModalFooter.appendChild(label);
             } else if (task.status === 'เสร็จสิ้น') {
@@ -1546,6 +1583,10 @@ class App {
         const now = new Date(); const logUser = this.currentUserName.textContent;
         if (!task.history) task.history = [];
         task.history.push({ time: now.toISOString(), action: `${actionDescription} (จาก "${oldStatus}" -> "${newStatus}")`, user: logUser });
+        
+        // 🚨 แจ้งเตือนผ่าน LINE ทันทีเมื่อมีการอัปเดตสถานะงาน
+        this.sendLineAlert(task, `ปรับเปลี่ยนสถานะเป็น "${newStatus}" (${actionDescription})`);
+
         this.saveData(); this.closeDetailModal();
         if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
         this.switchView(this.currentView); this.showToast(`บันทึกสถานะ: ${newStatus}`);
