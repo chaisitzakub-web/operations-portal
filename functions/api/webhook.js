@@ -7,12 +7,19 @@ export async function onRequestPost(context) {
     if (body.events && body.events.length > 0) {
       const event = body.events[0];
       
-      // เมื่อมีคนพิมพ์ในกลุ่มว่า "ขอไอดีกลุ่ม"
-      if (event.type === 'message' && event.source.type === 'group') {
-        if (event.message.text === 'ขอไอดีกลุ่ม') {
-          const groupId = event.source.groupId; // ดึงรหัสกลุ่มออกมา
+      if (event.type === 'message' && event.message.type === 'text') {
+        const text = event.message.text;
+        
+        // ใช้ includes เพื่อดักจับคำว่า "ขอไอดีกลุ่ม" แม้จะพิมพ์ @แท็กชื่อบอท มาด้วยก็ตาม
+        if (text.includes('ขอไอดีกลุ่ม')) {
+          let replyText = "กรุณาพิมพ์คำสั่งนี้ใน 'กลุ่มไลน์' เท่านั้นครับ";
           
-          // สั่งให้บอทตอบรหัสกลุ่มกลับไปในแชท
+          if (event.source.type === 'group') {
+            replyText = `✅ รหัส Group ID คือ:\n${event.source.groupId}\n\nก๊อปปี้รหัสยาวๆ นี้ไปให้ DEV ได้เลยครับ!`;
+          } else if (event.source.type === 'room') {
+            replyText = `✅ รหัส Room ID คือ:\n${event.source.roomId}\n\nก๊อปปี้รหัสยาวๆ นี้ไปให้ DEV ได้เลยครับ!`;
+          }
+          
           await fetch('https://api.line.me/v2/bot/message/reply', {
             method: 'POST',
             headers: {
@@ -21,7 +28,7 @@ export async function onRequestPost(context) {
             },
             body: JSON.stringify({
               replyToken: event.replyToken,
-              messages: [{ type: 'text', text: `✅ รหัส Group ID คือ:\n${groupId}\n\nก๊อปปี้รหัสนี้ไปให้ DEV ได้เลยครับ!` }]
+              messages: [{ type: 'text', text: replyText }]
             })
           });
         }
