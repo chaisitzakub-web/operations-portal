@@ -115,35 +115,35 @@
 
             <section id="viewLeaderDashboard" class="content-view active">
                 <div class="metrics-grid">
-                    <div class="metric-card glass-card border-left-info">
+                    <div class="metric-card glass-card border-left-info" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="app.navigateToTasksWithFilter('all')" title="คลิกเพื่อดูภารกิจทั้งหมด">
                         <div class="metric-content">
                             <span class="metric-label">ภารกิจทั้งหมด</span>
                             <h2 class="metric-value" id="statTotalTasks">0</h2>
                         </div>
                         <div class="metric-icon"><i class="fas fa-folder"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-warning">
+                    <div class="metric-card glass-card border-left-warning" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="app.navigateToTasksWithFilter('กำลังทำ')" title="คลิกเพื่อกรองเฉพาะงานที่กำลังดำเนินการ">
                         <div class="metric-content">
                             <span class="metric-label">กำลังดำเนินการ</span>
                             <h2 class="metric-value" id="statInProgressTasks">0</h2>
                         </div>
                         <div class="metric-icon"><i class="fas fa-spinner fa-spin"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-review">
+                    <div class="metric-card glass-card border-left-review" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="app.navigateToTasksWithFilter('รอการอนุมัติ')" title="คลิกเพื่อกรองเฉพาะงานที่รอการอนุมัติ">
                         <div class="metric-content">
                             <span class="metric-label">รอการอนุมัติ</span>
                             <h2 class="metric-value" id="statReviewTasks">0</h2>
                         </div>
                         <div class="metric-icon"><i class="fas fa-file-signature"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-success">
+                    <div class="metric-card glass-card border-left-success" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="app.navigateToTasksWithFilter('เสร็จสิ้น')" title="คลิกเพื่อกรองเฉพาะงานที่เสร็จสิ้นแล้ว">
                         <div class="metric-content">
                             <span class="metric-label">เสร็จสิ้น</span>
                             <h2 class="metric-value" id="statCompletedTasks">0</h2>
                         </div>
                         <div class="metric-icon"><i class="fas fa-circle-check"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-danger">
+                    <div class="metric-card glass-card border-left-danger" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'" onclick="app.navigateToTasksWithFilter('overdue')" title="คลิกเพื่อกรองเฉพาะงานที่เลยกำหนดส่ง">
                         <div class="metric-content">
                             <span class="metric-label">เลยกำหนดส่ง</span>
                             <h2 class="metric-value" id="statOverdueTasks">0</h2>
@@ -185,7 +185,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -220,7 +220,7 @@
                         </select>
                     </div>
                     <div class="filter-group">
-                        <label for="filterStatus"><i class="fas fa-star-half-stroke"></i> สถานะ</label>
+                        <label for="filterStatus"><i class="fas fa-star-half-stroke"></i> Status</label>
                         <select id="filterStatus" class="form-control">
                             <option value="all">ทั้งหมด</option>
                             <option value="รอดำเนินการ">รอดำเนินการ</option>
@@ -260,7 +260,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
 
@@ -288,7 +288,7 @@
                             <div class="form-group">
                                 <label>เลือกภาพอวตาร</label>
                                 <div class="avatar-options" id="avatarOptions">
-                                    </div>
+                                </div>
                                 <input type="hidden" id="selectedAvatar" value="seed1">
                             </div>
                             <button type="submit" class="btn btn-primary btn-block">
@@ -300,7 +300,7 @@
                     <div class="team-cards-container glass-card">
                         <h3 class="card-title"><i class="fas fa-users"></i> บัญชีรายชื่อเจ้าหน้าที่ฝ่ายยุทธการ</h3>
                         <div class="team-grid-cards" id="teamGridCards">
-                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -341,7 +341,7 @@
                             <span class="column-count" id="countTodo">0</span>
                         </div>
                         <div class="kanban-cards-container" id="kanban-todo">
-                            </div>
+                        </div>
                     </div>
 
                     <div class="kanban-column" data-status="กำลังทำ">
@@ -350,7 +350,7 @@
                             <span class="column-count" id="countProgress">0</span>
                         </div>
                         <div class="kanban-cards-container" id="kanban-progress">
-                            </div>
+                        </div>
                     </div>
 
                     <div class="kanban-column" data-status="รอการอนุมัติ">
@@ -359,7 +359,7 @@
                             <span class="column-count" id="countReview">0</span>
                         </div>
                         <div class="kanban-cards-container" id="kanban-review">
-                            </div>
+                        </div>
                     </div>
 
                     <div class="kanban-column" data-status="เสร็จสิ้น">
@@ -368,7 +368,7 @@
                             <span class="column-count" id="countDone">0</span>
                         </div>
                         <div class="kanban-cards-container" id="kanban-done">
-                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -392,7 +392,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                </tbody>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -410,10 +410,10 @@
 
             <section id="viewDataRepo" class="content-view d-none">
                 <div class="glass-card" style="height: 80vh; display: flex; flex-direction: column;">
-                    <h3 class="card-title"><i class="fas fa-cloud-arrow-up"></i> คลังข้อมูลส่วนกลาง</h3>
+                    <h3 class="card-title"><i class="fas fa-cloud-arrow-up"></i> คลังข้อมูลยุทธการ (Google Drive)</h3>
                     <p class="text-muted">แฟ้มส่วนกลางสำหรับจัดเก็บและค้นหาเอกสารยุทธการ ไฟล์ PDF และรูปภาพ</p>
                     <div class="iframe-drive-wrapper">
-                        <iframe src="https://drive.google.com/embeddedfolderview?id=1fOM-scGSneTckW5yK-L4cbUj3_wO024_#list" width="100%" height="100%" frameborder="0"></iframe>
+                        <iframe src="https://drive.google.com/embeddedfolderview?id=1fOM-scGSneTckW5yK-L4cbUj3_wO024_#list" frameborder="0"></iframe>
                     </div>
                     <div style="margin-top: 15px; text-align: right;">
                         <a href="https://drive.google.com/drive/folders/1fOM-scGSneTckW5yK-L4cbUj3_wO024_?usp=sharing" target="_blank" class="btn btn-primary">
