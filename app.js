@@ -400,8 +400,10 @@ class App {
             else this.renderMasterTaskListTable();
         });
 
+        // 🛠️ เอา Event Listener ที่ผูกการซ่อน/โชว์กล่อง PDF กับสถานะ "เสร็จสิ้น" ออกไป
+        // เพื่อให้กล่องอัปโหลดแสดงผลได้ตลอดเวลาไม่ว่าสถานะใดก็ตาม
         this.taskStatusInput.addEventListener('change', () => {
-            this.pdfUploadRow.style.display = (this.taskStatusInput.value === 'เสร็จสิ้น') ? 'grid' : 'none';
+            this.pdfUploadRow.style.display = 'grid'; // บังคับแสดงผลเสมอ
         });
 
         this.taskPdfInput.addEventListener('change', (e) => {
@@ -692,7 +694,6 @@ class App {
         });
     }
 
-    // ฟังก์ชันคำนวณวันหมดอายุที่หายไป (ใส่กลับมาแล้ว)
     isOverdue(task) {
         if (task.status === 'เสร็จสิ้น') return false;
         const now = new Date();
@@ -1240,7 +1241,6 @@ class App {
         this.taskStartDateInput.value = today; 
         this.taskDeadlineInput.value = today;
         
-        // 🔒 ตรวจสอบสิทธิ์: ถ้าเป็น Admin ให้เลือกคนอื่นได้ ถ้าเป็นเจ้าหน้าที่ทั่วไป ล็อคให้มอบหมายได้แค่ตัวเอง
         const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
         
         if (isAdmin) {
@@ -1248,11 +1248,16 @@ class App {
             this.taskAssigneeInput.disabled = false;
         } else {
             this.taskAssigneeInput.value = this.currentUser;
-            this.taskAssigneeInput.disabled = true; // ล็อคไม่ให้เปลี่ยนชื่อ
+            this.taskAssigneeInput.disabled = true; 
         }
         
         this.taskStatusInput.value = 'รอดำเนินการ'; this.taskStatusInput.disabled = false;
-        this.pdfUploadRow.style.display = 'none'; this.taskPdfInput.value = ''; this.pdfUploadStatus.textContent = 'ไม่มีไฟล์ที่แนบไว้';
+        
+        // 🛠️ โชว์กล่องอัปโหลด PDF ทุกสถานะตอนสร้างงานใหม่ (แก้ไขใหม่)
+        this.pdfUploadRow.style.display = 'grid'; 
+        this.taskPdfInput.value = ''; 
+        this.pdfUploadStatus.textContent = 'ไม่มีไฟล์ที่แนบไว้';
+        
         this.taskModal.classList.add('show');
     }
 
@@ -1266,26 +1271,26 @@ class App {
         this.taskStartDateInput.value = task.startDate; 
         this.taskDeadlineInput.value = task.deadline;
         
-        // 🔒 ตรวจสอบสิทธิ์: ล็อคไม่ให้เจ้าหน้าที่ทั่วไปโยนงานให้คนอื่นตอนแก้ไข
         const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
         this.taskAssigneeInput.disabled = !isAdmin; 
-        
         this.taskStatusInput.disabled = false;
         
-        if (task.status === 'เสร็จสิ้น') { 
-            this.pdfUploadRow.style.display = 'grid'; 
-            let fNames = '';
-            if(task.hasAttachment && task.attachmentName) {
-                try {
-                    const arr = JSON.parse(task.attachmentName);
-                    fNames = Array.isArray(arr) ? arr.join(', ') : task.attachmentName;
-                } catch(e) { fNames = task.attachmentName; }
-            }
-            this.pdfUploadStatus.textContent = task.hasAttachment ? `ไฟล์แนบปัจจุบัน: ${fNames}` : 'ยังไม่มีไฟล์แนบ'; 
-        }
-        else { this.pdfUploadRow.style.display = 'none'; }
+        // 🛠️ โชว์กล่องอัปโหลด PDF ทุกสถานะเวลาเปิดแก้ข้อมูล (แก้ไขใหม่)
+        this.pdfUploadRow.style.display = 'grid'; 
         
-        this.taskPdfInput.value = ''; this.taskModal.classList.add('show');
+        let fNames = '';
+        if(task.hasAttachment && task.attachmentName) {
+            try {
+                const arr = JSON.parse(task.attachmentName);
+                fNames = Array.isArray(arr) ? arr.join(', ') : task.attachmentName;
+            } catch(e) { fNames = task.attachmentName; }
+            this.pdfUploadStatus.textContent = `ไฟล์แนบปัจจุบัน: ${fNames}`; 
+        } else {
+            this.pdfUploadStatus.textContent = 'ยังไม่มีไฟล์แนบ';
+        }
+        
+        this.taskPdfInput.value = ''; 
+        this.taskModal.classList.add('show');
     }
 
     closeTaskModal() { this.taskModal.classList.remove('show'); }
@@ -1325,7 +1330,8 @@ class App {
             this.tasks.push(taskObj);
         }
 
-        if (taskObj && status === 'เสร็จสิ้น' && this.taskPdfInput.files.length > 0) {
+        // 🛠️ อนุญาตให้บันทึกไฟล์ได้เลยถ้ามีไฟล์ถูกเลือก ไม่จำกัดเฉพาะสถานะ 'เสร็จสิ้น' (แก้ไขใหม่)
+        if (taskObj && this.taskPdfInput.files.length > 0) {
             const files = this.taskPdfInput.files;
             const fileNamesArray = Array.from(files).map(f => f.name);
             
