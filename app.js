@@ -750,6 +750,29 @@ class App {
         this.renderTeamProgressTable();
     }
 
+    // 🗂️ ฟังก์ชัน: นำทางไปยังหน้าแฟ้มภารกิจ พร้อมตั้งค่าตัวกรองอัตโนมัติจากแดชบอร์ด
+    navigateToTasksWithFilter(statusValue) {
+        if (this.filterAssignee) this.filterAssignee.value = 'all';
+        if (this.filterUrgency) this.filterUrgency.value = 'all';
+        if (this.filterSecrecy) this.filterSecrecy.value = 'all';
+        if (this.searchTask) this.searchTask.value = '';
+
+        if (this.filterStatus) {
+            this.filterStatus.value = statusValue;
+        }
+
+        this.switchView('leader-tasks');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        let statusName = "ทั้งหมด";
+        if(statusValue === 'กำลังทำ') statusName = "กำลังดำเนินการ";
+        if(statusValue === 'รอการอนุมัติ') statusName = "รอการอนุมัติ";
+        if(statusValue === 'เสร็จสิ้น') statusName = "เสร็จสิ้น";
+        if(statusValue === 'overdue') statusName = "เลยกำหนดส่ง";
+        
+        this.showToast(`กำลังแสดงรายการ: ${statusName}`, 'info');
+    }
+
     renderCharts() {
         if (this.statusChartInstance) this.statusChartInstance.destroy();
         if (this.staffChartInstance) this.staffChartInstance.destroy();
@@ -1231,6 +1254,29 @@ class App {
         container.innerHTML = html;
     }
 
+    // 🗂️ ฟังก์ชัน: นำทางไปยังหน้าแฟ้มภารกิจ พร้อมตั้งค่าตัวกรองสถานะงานโดยอัตโนมัติจากแดชบอร์ด
+    navigateToTasksWithFilter(statusValue) {
+        if (this.filterAssignee) this.filterAssignee.value = 'all';
+        if (this.filterUrgency) this.filterUrgency.value = 'all';
+        if (this.filterSecrecy) this.filterSecrecy.value = 'all';
+        if (this.searchTask) this.searchTask.value = '';
+
+        if (this.filterStatus) {
+            this.filterStatus.value = statusValue;
+        }
+
+        this.switchView('leader-tasks');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        let statusName = "ทั้งหมด";
+        if(statusValue === 'กำลังทำ') statusName = "กำลังดำเนินการ";
+        if(statusValue === 'รอการอนุมัติ') statusName = "รอการอนุมัติ";
+        if(statusValue === 'เสร็จสิ้น') statusName = "เสร็จสิ้น";
+        if(statusValue === 'overdue') statusName = "เลยกำหนดส่ง";
+        
+        this.showToast(`กำลังแสดงรายการ: ${statusName}`, 'info');
+    }
+
     openCreateTaskModal() {
         this.taskForm.reset(); 
         this.taskModalTitle.innerHTML = '<i class="fas fa-circle-plus"></i> มอบหมายภารกิจยุทธการใหม่'; 
@@ -1252,8 +1298,6 @@ class App {
         }
         
         this.taskStatusInput.value = 'รอดำเนินการ'; this.taskStatusInput.disabled = false;
-        
-        // 🛠️ โชว์กล่องอัปโหลด PDF ทุกสถานะตอนสร้างงานใหม่ (แก้ไขใหม่)
         this.pdfUploadRow.style.display = 'grid'; 
         this.taskPdfInput.value = ''; 
         this.pdfUploadStatus.textContent = 'ไม่มีไฟล์ที่แนบไว้';
@@ -1275,7 +1319,6 @@ class App {
         this.taskAssigneeInput.disabled = !isAdmin; 
         this.taskStatusInput.disabled = false;
         
-        // 🛠️ โชว์กล่องอัปโหลด PDF ทุกสถานะเวลาเปิดแก้ข้อมูล (แก้ไขใหม่)
         this.pdfUploadRow.style.display = 'grid'; 
         
         let fNames = '';
@@ -1330,7 +1373,6 @@ class App {
             this.tasks.push(taskObj);
         }
 
-        // 🛠️ อนุญาตให้บันทึกไฟล์ได้เลยถ้ามีไฟล์ถูกเลือก ไม่จำกัดเฉพาะสถานะ 'เสร็จสิ้น' (แก้ไขใหม่)
         if (taskObj && this.taskPdfInput.files.length > 0) {
             const files = this.taskPdfInput.files;
             const fileNamesArray = Array.from(files).map(f => f.name);
@@ -1375,7 +1417,7 @@ class App {
     }
 
     deleteTask(taskId) {
-        if (confirm('คุณแน่ใจหรือไม่ว่าต้องการยกเลิกและลบภารกิจนี้?')) {
+        if (confirm('คุณแน่ิกดเลิกและลบภารกิจนี้?')) {
             this.tasks = this.tasks.filter(t => t.id !== taskId);
             this.attachments.deleteAttachment(taskId).catch(e => e);
             this.saveData();
@@ -1502,7 +1544,6 @@ class App {
         const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         const oldStatus = task.status; task.status = newStatus;
         const now = new Date(); const logUser = this.currentUserName.textContent;
-        // 🛠️ ตรวจสอบ Array history ให้แน่ใจอีกครั้งในฟังก์ชันเปลี่ยนสถานะงาน
         if (!task.history) task.history = [];
         task.history.push({ time: now.toISOString(), action: `${actionDescription} (จาก "${oldStatus}" -> "${newStatus}")`, user: logUser });
         this.saveData(); this.closeDetailModal();
