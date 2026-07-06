@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link class="apple-touch-icon" rel="apple-touch-icon" href="logo.jpg">
+    <link rel="apple-touch-icon" href="logo.jpg">
     
     <title>ระบบจัดการงานและแดชบอร์ดฝ่ายยุทธการ | Operations Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* 🚫 สีทึบ 100% อ่านง่ายสบายตา */
+        /* 🚫 ยกเลิกความโปร่งใส เปลี่ยนเป็นสีทึบ 100% อ่านง่ายสบายตา */
         .glass-card, .modal, .kanban-card, .metric-card, .chart-container, .table-container, 
         .form-container, .team-cards-container, .staff-header-profile, .detail-meta-info,
         #eventDescription, #mobileStaffProgressDisplay {
@@ -231,7 +231,6 @@
                         <div class="staff-profile-details">
                             <h2 id="staffProfileName">ชื่อเจ้าหน้าที่</h2>
                             <p id="staffProfileRole">ตำแหน่งงาน</p>
-                            <!-- ⚠️ จุดซ่อมแซมจุดที่ 1: เพิ่มช่องลิสต์ข้อมูลสถิติตัวเลขเพื่อป้องกันโค้ดค้าง -->
                             <div style="font-size: 12px; margin-top: 5px; color: var(--text-muted);">
                                 ⏳ รอดำเนินการ: <span id="staffStatTodo">0</span> | 🔄 กำลังทำ: <span id="staffStatProgress">0</span> | 
                                 📑 รออนุมัติ: <span id="staffStatReview">0</span> |  ✅ สำเร็จ: <span id="staffStatDone">0</span>
@@ -271,7 +270,14 @@
     </div>
 
     <!-- Modal สร้างและแก้ไขงาน -->
-    <div class="modal-backdrop" id="taskModal"><div class="modal glass-card"><div class="modal-header"><h3 class="modal-title" id="taskModalTitle">มอบหมายภารกิจ</h3><button type="button" class="modal-close-btn" id="taskModalCloseBtn"><i class="fas fa-times"></i></button></div><form id="taskForm"><input type="hidden" id="taskIdField"><div class="modal-body"><div class="form-group"><label for="taskName"><span class="required">*</span> ชื่องาน / แผนยุทธการ</label><input type="text" id="taskName" class="form-control" required></div><div class="form-group"><label for="taskDescription">รายละเอียดการปฏิบัติงาน</label><textarea id="taskDescription" class="form-control text-area" rows="3"></textarea></div><div class="form-row"><div class="form-group"><label for="taskAssignee"><span class="required">*</span> ผู้รับผิดชอบ</label><select id="taskAssignee" class="form-control" required></select></div><div class="form-group"><label for="taskStatus"><span class="required">*</span> สถานะงาน</label><select id="taskStatus" class="form-control" required><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option></select></div></div><div class="form-row"><div class="form-group"><label for="taskUrgency"><span class="required">*</span> ความเร่งด่วน</label><select id="taskUrgency" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div><div class="form-group"><label for="taskSecrecy"><span class="required">*</span> ชั้นความลับ</label><select id="taskSecrecy" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div></div><div class="form-row"><div class="form-group"><label for="taskReceiveDate"><span class="required">*</span> เอกสารเข้า</label><input type="date" id="taskReceiveDate" class="form-control" required></div><div class="form-group"><label for="taskStartDate"><span class="required">*</span> วันที่เริ่ม</label><input type="date" id="taskStartDate" class="form-control" required></div><div class="form-group"><label for="taskDeadline"><span class="required">*</span> กำหนดส่ง</label><input type="date" id="taskDeadline" class="form-control" required></div></div>
+    <div class="modal-backdrop" id="taskModal"><div class="modal glass-card"><div class="modal-header"><h3 class="modal-title" id="taskModalTitle">มอบหมายภารกิจ</h3><button type="button" class="modal-close-btn" id="taskModalCloseBtn"><i class="fas fa-times"></i></button></div><form id="taskForm"><input type="hidden" id="taskIdField"><div class="modal-body"><div class="form-group"><label for="taskName"><span class="required">*</span> ชื่องาน / แผนยุทธการ</label><input type="text" id="taskName" class="form-control" required></div><div class="form-group"><label for="taskDescription">รายละเอียดการปฏิบัติงาน</label><textarea id="taskDescription" class="form-control text-area" rows="3"></textarea></div><div class="form-row"><div class="form-group"><label for="taskAssignee"><span class="required">*</span> ผู้รับผิดชอบ</label><select id="taskAssignee" class="form-control" required></select></div><div class="form-group"><label for="taskStatus"><span class="required">*</span> สถานะงาน</label><select id="taskStatus" class="form-control" required><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option></select></div></div><div class="form-row"><div class="form-group"><label for="taskUrgency"><span class="required">*</span> ความเร่งด่วน</label><select id="taskUrgency" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div><div class="form-group"><label for="taskSecrecy"><span class="required">*</span> ชั้นความลับ</label><select id="taskSecrecy" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div></div>
+    
+    <!-- 📅 เติม ID กลับเข้ากล่อง Input วันที่เพื่อให้จังหวะโหลดไม่ขัดข้อง -->
+    <div class="form-row">
+        <div class="form-group"><label for="taskReceiveDate"><span class="required">*</span> เอกสารเข้า</label><input type="date" id="taskReceiveDate" class="form-control" required></div>
+        <div class="form-group"><label for="taskStartDate"><span class="required">*</span> วันที่เริ่ม</label><input type="date" id="taskStartDate" class="form-control" required></div>
+        <div class="form-group"><label for="taskDeadline"><span class="required">*</span> กำหนดส่ง</label><input type="date" id="taskDeadline" class="form-control" required></div>
+    </div>
     
     <div class="form-group" style="margin-top: 15px; border-top: 1px dashed #475569; padding-top: 15px;">
         <label style="font-weight: 600; color: var(--text-primary);">📋 เพิ่มกิจย่อย (Checklist)</label>
@@ -287,7 +293,6 @@
     <!-- Modal ดูรายละเอียดงานจากในแอป -->
     <div class="modal-backdrop" id="taskDetailModal"><div class="modal modal-lg glass-card"><div class="modal-header"><div class="title-with-badge"><span class="detail-secrecy-badge" id="detailSecrecyBadge">ปกติ</span><h3 class="modal-title" id="detailTitle">รายละเอียดแผนงาน</h3></div><button type="button" class="modal-close-btn" id="taskDetailCloseBtn"><i class="fas fa-times"></i></button></div><div class="modal-body"><div class="detail-grid"><div class="detail-main-info"><div class="detail-section"><h4 class="detail-sec-title">รายละเอียดภารกิจ</h4><p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p>
     
-    <!-- 📋 โซนติ๊ก Checklist และหลอดแถบแสดง % ในหน้าต่างรายละเอียด -->
     <div style="border-top: 1px dashed #475569; padding-top: 15px; margin-top: 15px;">
         <h4 class="detail-sec-title"><i class="fas fa-tasks"></i> ความคืบหน้าของกิจย่อย (<span id="detailSubTaskPercentage">0%</span>)</h4>
         <div style="height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden; width: 100%; margin-bottom: 12px;">
@@ -296,7 +301,6 @@
         <div id="detailSubTaskListContainer"></div>
     </div>
 
-    <!-- ⚠️ จุดซ่อมแซมประวัติล็อกงานเก่าค้าง -->
     <div style="border-top: 1px dashed #475569; padding-top: 15px; margin-top: 15px;">
         <h5 style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">📜 ประวัติการบันทึกงาน:</h5>
         <div id="detailHistoryLog" style="font-size:11px; color:var(--text-muted); max-height:80px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;"></div>
@@ -304,7 +308,7 @@
 
     </div><div class="detail-meta-info glass-card"><h4 class="detail-sec-title"><i class="fas fa-circle-info"></i> ข้อมูลจำเพาะ</h4><div class="meta-item"><span class="meta-label">ผู้รับผิดชอบ:</span><div class="meta-value-user"><img id="detailAssigneeAvatar" src="" alt="Avatar" class="avatar-xs"><span id="detailAssigneeName">-</span></div></div><div class="meta-item"><span class="meta-label">สถานะปัจจุบัน:</span><span class="status-badge" id="detailStatusBadge">-</span></div><div class="meta-item"><span class="meta-label">ความเร่งด่วน:</span><span class="urgency-badge" id="detailUrgencyBadge">-</span></div><div class="meta-item"><span class="meta-label">วันที่เอกสารเข้า:</span><span class="meta-value" id="detailReceiveDate">-</span></div><div class="meta-item"><span class="meta-label">วันที่เริ่มงาน:</span><span class="meta-value" id="detailStartDate">-</span></div><div class="meta-item"><span class="meta-label">กำหนดส่ง:</span><span class="meta-value" id="detailDeadline">-</span></div><div class="meta-item text-danger" id="detailOverdueBox"></div><div class="meta-item d-none" id="detailPdfItem"><span class="meta-label">เอกสารแนบ:</span><div id="pdfButtonsContainer"></div></div></div></div></div><div class="modal-footer" id="detailModalFooter"></div></div></div>
 
-    <!-- Modal สำหรับเปิดรายละเอียดปฏิทินที่มาจาก Google Calendar ล้วนๆ -->
+    <!-- Modal สำหรับเปิดรายละเอียดปฏิทินที่มาจาก Google Calendar -->
     <div class="modal-backdrop" id="eventModal">
         <div class="modal glass-card" style="max-width: 500px;">
             <div class="modal-header">
@@ -328,6 +332,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=101"></script>
+    <script src="app.js?v=200"></script>
 </body>
 </html>
