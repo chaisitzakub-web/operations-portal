@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับแก้ไขสมบูรณ์ 100%: ปลดล็อกปฏิทินค้าง แยก Pop-up ป้องกันการชนกันของรหัส ข้อมูลกำลังพลและงานย่อยใช้งานได้ครบถ้วน
+ * ฉบับสมบูรณ์ 100% ไร้รอยตัดย่อ: ระบบกิจย่อยคำนวณ % + กู้ชีพกำลังพล สถิติ แฟ้มงาน และปฏิทินร่วมเสถียรภาพสูงสุด
  */
 
 class AttachmentStore {
@@ -51,6 +51,7 @@ const DEFAULT_STAFF = [
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40, lineUserId: '' }
 ];
+const DEFAULT_TASKS = [];
 
 class App {
     constructor() {
@@ -182,6 +183,22 @@ class App {
         else if (viewName === 'team-calendar') this.renderOutlookSharedCalendar(); 
     }
 
+    switchRole(roleVal) {
+        this.currentUser = roleVal; const member = this.staff.find(m => m.id === roleVal);
+        if (member) {
+            if (this.currentUserName) this.currentUserName.textContent = member.name;
+            if (this.currentUserRoleText) this.currentUserRoleText.textContent = member.role.split(' (')[0];
+            if (this.currentUserAvatar) this.currentUserAvatar.src = member.avatar;
+            if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith' || member.isStaffAdmin) {
+                if(this.leaderNav) this.leaderNav.classList.remove('d-none'); if(this.staffNav) this.staffNav.classList.add('d-none'); if(this.btnCreateTask) this.btnCreateTask.classList.remove('d-none');
+                this.switchView('leader-dashboard');
+            } else {
+                if(this.leaderNav) this.leaderNav.classList.add('d-none'); if(this.staffNav) this.staffNav.classList.remove('d-none'); if(this.btnCreateTask) this.btnCreateTask.classList.remove('d-none');
+                this.switchView('staff-kanban');
+            }
+        }
+    }
+
     setupEventListeners() {
         if(this.roleSelector) this.roleSelector.addEventListener('change', (e) => this.switchRole(e.target.value));
         document.querySelectorAll('.nav-link').forEach(link => { link.addEventListener('click', (e) => { e.preventDefault(); this.switchView(link.getAttribute('data-view')); }); });
@@ -236,8 +253,6 @@ class App {
             sub.isDone = isChecked; const progress = this.getTaskProgress(task);
             const pctText = document.getElementById('detailSubTaskPercentage'); const pBar = document.getElementById('detailSubTaskProgressBar');
             if(pctText) pctText.textContent = `${progress}%`; if(pBar) pBar.style.width = `${progress}%`;
-            if (!task.history) task.history = [];
-            task.history.push({ time: new Date().toISOString(), action: `อัปเดตกิจย่อย "${sub.name}" (${progress}%)`, user: this.currentUserName.textContent });
             this.saveData(); this.switchView(this.currentView); this.viewTaskDetails(taskId);
         }
     }
@@ -482,10 +497,9 @@ class App {
             try {
                 const parsed = JSON.parse(storedData);
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
-                this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : JSON.parse(JSON.stringify(DEFAULT_TASKS));
-                this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
-            } catch (e) { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS)); }
-        } else { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS)); }
+                this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+            } catch (e) { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = []; }
+        } else { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = []; }
         this.ensureAdminStaff(); this.saveData();
     }
 
@@ -496,6 +510,12 @@ class App {
     getStatusBadge(status) { return `<span>${status}</span>`; }
     closeTaskModal() { if(this.taskModal) this.taskModal.classList.remove('show'); }
     closeDetailModal() { if(this.taskDetailModal) this.taskDetailModal.classList.remove('show'); }
+    renderCharts() {
+        if (this.statusChartInstance) this.statusChartInstance.destroy(); if (this.staffChartInstance) this.staffChartInstance.destroy();
+        const statusChartCanvas = document.getElementById('statusChart'); const staffChartCanvas = document.getElementById('staffChart');
+        if (!statusChartCanvas || !staffChartCanvas) return;
+        this.statusChartInstance = new Chart(statusChartCanvas, { type: 'doughnut', data: { labels: ['รอดำเนินการ', 'กำลังทำ', 'เสร็จสิ้น'], datasets: [{ data: [this.tasks.filter(t=>t.status==='รอดำเนินการ').length, this.tasks.filter(t=>t.status==='กำลังทำ').length, this.tasks.filter(t=>t.status==='เสร็จสิ้น').length], backgroundColor: ['#94a3b8', '#eab308', '#10b981'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+    }
     renderLeaderDashboard() {
         if (this.statTotalTasks) this.statTotalTasks.textContent = this.tasks.length;
         if (this.statInProgressTasks) this.statInProgressTasks.textContent = this.tasks.filter(t => t.status === 'กำลังทำ').length;
