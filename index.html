@@ -17,6 +17,37 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
+        /* 🚫 ยกเลิกความโปร่งใส เปลี่ยนเป็นสีทึบ 100% มองง่ายขึ้น */
+        .glass-card, .modal, .kanban-card, .metric-card, .chart-container, .table-container, 
+        .form-container, .team-cards-container, .staff-header-profile, .detail-meta-info,
+        #eventDescription, #mobileStaffProgressDisplay {
+            background-color: #1e293b !important; /* สีทึบโหมดมืด */
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        /* สีทึบสำหรับโหมดสว่าง (Light Theme) */
+        body.light-theme .glass-card, 
+        body.light-theme .modal, 
+        body.light-theme .kanban-card,
+        body.light-theme .metric-card,
+        body.light-theme .chart-container,
+        body.light-theme .table-container,
+        body.light-theme .form-container,
+        body.light-theme .team-cards-container,
+        body.light-theme .staff-header-profile,
+        body.light-theme .detail-meta-info,
+        body.light-theme #eventDescription,
+        body.light-theme #mobileStaffProgressDisplay {
+            background-color: #ffffff !important;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        /* ทำให้ช่องกรอกข้อมูลทึบด้วยอ่านง่ายขึ้น */
+        .form-control { background-color: #0f172a !important; color: #f8fafc !important; }
+        body.light-theme .form-control { background-color: #f1f5f9 !important; color: #0f172a !important; }
+
         /* 🛡️ จัดระเบียบปฏิทินพื้นฐาน (ใช้ได้กับทุกจอ) */
         #fullCalendarContainer { width: 100%; max-width: 100%; }
         .fc .fc-view-harness { max-width: 100%; }
