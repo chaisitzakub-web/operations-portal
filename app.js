@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับแก้ปฏิทินเบียดกัน: บังคับใช้ชื่อวันแบบย่อ (อา., จ., อ.)
+ * ฉบับสมบูรณ์: ดูดไฟล์แนบ (Attachments) จาก Google Calendar มาแสดงเป็นปุ่มโหลด 100%
  */
 
 class AttachmentStore {
@@ -379,7 +379,7 @@ class App {
         });
     }
 
-    // 📅 ระบบปฏิทิน (ผสานร่างข้อมูล + บังคับย่อชื่อวัน)
+    // 📅 ระบบปฏิทิน (ผสานร่างข้อมูล + เขียน API Fetcher เองเพื่อดึง PDF จาก Google)
     renderOutlookSharedCalendar() {
         const calendarContainer = document.getElementById('fullCalendarContainer'); 
         if (!calendarContainer) return;
@@ -433,41 +433,101 @@ class App {
             },
             initialView: 'dayGridMonth',
             locale: 'th',
-            
-            // 👉 ตรงนี้คือพระเอกครับ! บังคับให้ปฏิทินใช้ชื่อวันแบบย่อ (อา., จ., อ.)
-            dayHeaderFormat: { weekday: 'short' },
-            
+            dayHeaderFormat: { weekday: 'short' }, // ย่อชื่อวัน
             height: '100%',
             contentHeight: 'auto',
             handleWindowResize: true,
+            
             eventSources: [
                 {
-                    googleCalendarApiKey: 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM',
-                    googleCalendarId: 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com',
-                    color: '#3b82f6'
+                    // 🔥 เปลี่ยนจากการใช้ Plugin สำเร็จรูป มาเป็นเขียนโค้ดดูด API เอง เพื่อเอาไฟล์ PDF ออกมา!
+                    events: async (info, successCallback, failureCallback) => {
+                        const apiKey = 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM';
+                        const calId = 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com';
+                        // วิ่งไปเคาะหลังบ้าน Google
+                        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?key=${apiKey}&timeMin=${info.startStr}&timeMax=${info.endStr}&singleEvents=true`;
+                        
+                        try {
+                            const res = await fetch(url);
+                            const data = await res.json();
+                            if (data.items) {
+                                const gEvents = data.items.map(item => ({
+                                    id: item.id,
+                                    title: item.summary || 'ไม่มีชื่อกิจกรรม',
+                                    start: item.start.dateTime || item.start.date,
+                                    end: item.end?.dateTime || item.end?.date,
+                                    url: item.htmlLink,
+                                    color: '#3b82f6',
+                                    extendedProps: {
+                                        isAppTask: false,
+                                        description: item.description || 'ไม่มีรายละเอียดระบุไว้',
+                                        attachments: item.attachments || [] // 📂 ดูดไฟล์แนบออกมาตรงนี้!
+                                    }
+                                }));
+                                successCallback(gEvents);
+                            } else {
+                                successCallback([]);
+                            }
+                        } catch(err) {
+                            failureCallback(err);
+                        }
+                    }
                 },
                 {
                     events: appEvents
                 }
             ],
+            
             eventClick: (info) => {
                 info.jsEvent.preventDefault(); 
+                
+                // 1️⃣ ถ้าเป็นงานจากในแอปยุทธการ
                 if (info.event.extendedProps.isAppTask) {
                     const allTasks = info.event.extendedProps.allTasks;
                     if (allTasks && allTasks.length > 0) {
                         this.viewMergedTaskDetails(allTasks);
                     }
-                } else {
+                } 
+                // 2️⃣ ถ้าเป็นงานจาก Google Calendar ล้วนๆ
+                else {
                     const title = info.event.title;
                     const startStr = info.event.start ? info.event.start.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : '-';
                     const endStr = info.event.end ? info.event.end.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : startStr;
-                    const desc = info.event.extendedProps.description || 'ไม่มีรายละเอียดระบุไว้';
-                    const url = info.event.url;
+                    const desc = info.event.extendedProps.description;
+                    const attachments = info.event.extendedProps.attachments; // ดึงไฟล์แนบที่ซ่อนอยู่
+                    const url = info.event.url || info.event.extendedProps.url;
 
                     document.getElementById('eventTitle').textContent = title;
                     document.getElementById('eventTime').textContent = `${startStr} - ${endStr}`;
                     document.getElementById('eventDescription').innerHTML = desc;
                     
+                    // 📌 จัดการแสดงปุ่มโหลดไฟล์แนบ Google Drive
+                    const attachWrapper = document.getElementById('eventModalAttachmentsWrapper');
+                    const attachBox = document.getElementById('eventAttachmentsBox');
+                    if (attachWrapper && attachBox) {
+                        attachBox.innerHTML = '';
+                        if (attachments && attachments.length > 0) {
+                            attachments.forEach(att => {
+                                const btn = document.createElement('a');
+                                btn.href = att.fileUrl; // ลิงก์ไป Google Drive
+                                btn.target = '_blank';
+                                btn.className = 'btn btn-secondary';
+                                btn.style = 'display: block; padding: 8px 12px; font-size: 12px; font-weight: 600; text-align: left; margin-bottom: 8px; color: var(--text-primary); text-decoration: none; border: 1px solid var(--glass-border); border-radius: 8px;';
+                                
+                                let icon = 'fa-file';
+                                if (att.mimeType && att.mimeType.includes('pdf')) icon = 'fa-file-pdf text-danger';
+                                else if (att.mimeType && att.mimeType.includes('image')) icon = 'fa-file-image text-success';
+                                else if (att.mimeType && att.mimeType.includes('word')) icon = 'fa-file-word text-primary';
+                                
+                                btn.innerHTML = `<i class="fas ${icon}"></i> ${att.title}`;
+                                attachBox.appendChild(btn);
+                            });
+                            attachWrapper.classList.remove('d-none');
+                        } else {
+                            attachWrapper.classList.add('d-none');
+                        }
+                    }
+
                     const btnLink = document.getElementById('eventLinkBtn');
                     if (url) {
                         btnLink.href = url;
