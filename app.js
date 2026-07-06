@@ -422,9 +422,16 @@ class App {
         const calendarViewArea = document.getElementById('viewTeamCalendar'); if (!calendarViewArea) return;
         const googleCalendarEmbedUrl = "https://calendar.google.com/calendar/embed?src=c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf%40group.calendar.google.com&ctz=Asia%2FBangkok"; 
         calendarViewArea.innerHTML = `
-            <div class="calendar-wrapper glass-card" style="padding:10px; border-radius:12px; height: calc(100vh - 140px); min-height:550px; display:flex; flex-direction:column; background:var(--card-bg); border:1px solid var(--glass-border); margin: 30px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px;"><div style="font-size:14px; font-weight:600; color:var(--text-primary);"><i class="far fa-calendar-alt text-primary"></i> 📆 แผนปฏิทินยุทธการร่วม ฝยก.พล.ร.4</div><a href="https://calendar.google.com" target="_blank" class="btn btn-primary" style="padding:6px 12px; font-size:11px; border-radius:6px; text-decoration:none; color:#fff;"><i class="fas fa-edit"></i> เปิด/แก้ไขแผนงาน</a></div>
-                <div style="flex-grow:1; width:100%; border-radius:8px; overflow:hidden; background:#fff;"><iframe src="${googleCalendarEmbedUrl}" style="border:0; width:100%; height:100%;" frameborder="0" scrolling="yes"></iframe></div>
+            <div class="calendar-wrapper glass-card" style="padding:10px; border-radius:12px; height: calc(100vh - 110px); min-height:550px; display:flex; flex-direction:column; background:var(--card-bg); border:1px solid var(--glass-border); width:100%; box-sizing:border-box;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px; flex-wrap: wrap; gap: 8px;">
+                    <div style="font-size:14px; font-weight:600; color:var(--text-primary);"><i class="far fa-calendar-alt text-primary"></i> 📆 แผนปฏิทินยุทธการร่วม</div>
+                    <a href="https://calendar.google.com/calendar/u/0/r" target="_blank" class="btn btn-primary" style="padding:8px 12px; font-size:12px; border-radius:6px; text-decoration:none; color:#fff; flex-grow:1; text-align:center; font-weight:bold;">
+                        <i class="fas fa-external-link-alt"></i> เปิด/แก้ไขแผนงานผ่านแอป
+                    </a>
+                </div>
+                <div style="flex-grow:1; width:100%; border-radius:8px; overflow:hidden; background:#fff;">
+                    <iframe src="${googleCalendarEmbedUrl}" style="border:0; width:100%; height:100%;" frameborder="0" scrolling="yes"></iframe>
+                </div>
             </div>
         `;
     }
@@ -554,7 +561,7 @@ class App {
             const oldStatus = task.status; task.status = newStatus;
             if (!task.history) task.history = [];
             task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
-            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"ผ่านกระดาน Kanban`);
+            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}" (ลากวางผ่าน Kanban)`);
             this.saveData(); this.renderStaffKanban();
             if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
             this.showToast(`ย้ายภารกิจไปยัง "${newStatus}" เรียบร้อย`);
