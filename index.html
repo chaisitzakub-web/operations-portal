@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- ระบบ PWA แปลงเว็บเป็นแอปมือถือ -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="logo.jpg">
+    <link class="apple-touch-icon" rel="apple-touch-icon" href="logo.jpg">
     
     <title>ระบบจัดการงานและแดชบอร์ดฝ่ายยุทธการ | Operations Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +18,7 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* 🚫 ยกเลิกความโปร่งใส เปลี่ยนเป็นสีทึบ 100% มองง่ายขึ้น */
+        /* 🚫 สีทึบ 100% อ่านง่ายสบายตา */
         .glass-card, .modal, .kanban-card, .metric-card, .chart-container, .table-container, 
         .form-container, .team-cards-container, .staff-header-profile, .detail-meta-info,
         #eventDescription, #mobileStaffProgressDisplay {
@@ -79,16 +80,13 @@
                         <span class="logo-subtitle">Operations Portal</span>
                     </div>
                 </div>
-                <button class="close-sidebar-btn" id="closeSidebarBtn">
-                    <i class="fas fa-times"></i>
-                </button>
+                <button class="close-sidebar-btn" id="closeSidebarBtn"><i class="fas fa-times"></i></button>
             </div>
 
             <div class="user-profile-selector">
                 <label class="selector-label"><i class="fas fa-user-gear"></i> สลับบทบาทผู้ใช้</label>
                 <div class="custom-select-wrapper">
-                    <select id="roleSelector" class="role-selector">
-                    </select>
+                    <select id="roleSelector" class="role-selector"></select>
                 </div>
             </div>
 
@@ -149,29 +147,29 @@
                 <div class="header-right">
                     <div class="current-time-widget" id="currentTimeWidget"><i class="far fa-clock"></i><span id="liveTime">12:00:00</span></div>
                     <button class="theme-toggle-btn" id="themeToggleBtn" title="สลับธีม"><i class="fas fa-moon"></i></button>
-                    <button class="btn btn-primary" id="btnCreateTask" title="สร้างภารกิจใหม่"><i class="fas fa-plus"></i> <span class="hide-on-mobile">สร้างภารกิจใหม่</span></button>
+                    <button class="btn btn-primary" id="btnCreateTask" title="สร้างภารกิจใหม่"><i class="fas fa-plus"></i> <span>สร้างภารกิจใหม่</span></button>
                 </div>
             </header>
 
             <section id="viewLeaderDashboard" class="content-view active">
                 <div class="metrics-grid">
-                    <div class="metric-card glass-card border-left-info" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'all')" title="คลิกเพื่อดูภารกิจทั้งหมด">
+                    <div class="metric-card glass-card border-left-info" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'all')">
                         <div class="metric-content"><span class="metric-label">ภารกิจทั้งหมด</span><h2 class="metric-value" id="statTotalTasks">0</h2></div>
                         <div class="metric-icon"><i class="fas fa-folder"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-warning" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'กำลังทำ')" title="คลิกเพื่อกรองเฉพาะงานที่กำลังดำเนินการ">
+                    <div class="metric-card glass-card border-left-warning" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'กำลังทำ')">
                         <div class="metric-content"><span class="metric-label">กำลังดำเนินการ</span><h2 class="metric-value" id="statInProgressTasks">0</h2></div>
                         <div class="metric-icon"><i class="fas fa-spinner fa-spin"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-review" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'รอการอนุมัติ')" title="คลิกเพื่อกรองเฉพาะงานที่รอการอนุมัติ">
-                        <div class="metric-content"><span class="metric-label">รอการอนุมัติ</span><h2 class="metric-value" id="statReviewTasks">0</h2></div>
+                    <div class="metric-card glass-card border-left-review" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'รอการอนุมัติ')">
+                        <div class="metric-content"><span class="metric-label">รออนุมัติ</span><h2 class="metric-value" id="statReviewTasks">0</h2></div>
                         <div class="metric-icon"><i class="fas fa-file-signature"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-success" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'เสร็จสิ้น')" title="คลิกเพื่อกรองเฉพาะงานที่เสร็จสิ้นแล้ว">
+                    <div class="metric-card glass-card border-left-success" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'เสร็จสิ้น')">
                         <div class="metric-content"><span class="metric-label">เสร็จสิ้น</span><h2 class="metric-value" id="statCompletedTasks">0</h2></div>
                         <div class="metric-icon"><i class="fas fa-circle-check"></i></div>
                     </div>
-                    <div class="metric-card glass-card border-left-danger" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'overdue')" title="คลิกเพื่อกรองเฉพาะงานที่เลยกำหนดส่ง">
+                    <div class="metric-card glass-card border-left-danger" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'overdue')">
                         <div class="metric-content"><span class="metric-label">เลยกำหนดส่ง</span><h2 class="metric-value" id="statOverdueTasks">0</h2></div>
                         <div class="metric-icon"><i class="fas fa-triangle-exclamation"></i></div>
                     </div>
@@ -198,16 +196,16 @@
                     <div class="filter-group"><label for="filterAssignee"><i class="fas fa-user"></i> เจ้าหน้าที่</label><select id="filterAssignee" class="form-control"><option value="all">ทั้งหมด</option></select></div>
                     <div class="filter-group"><label for="filterUrgency"><i class="fas fa-bolt"></i> ความเร่งด่วน</label><select id="filterUrgency" class="form-control"><option value="all">ทั้งหมด</option><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div>
                     <div class="filter-group"><label for="filterSecrecy"><i class="fas fa-key"></i> ชั้นความลับ</label><select id="filterSecrecy" class="form-control"><option value="all">ทั้งหมด</option><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div>
-                    <div class="filter-group"><label for="filterStatus"><i class="fas fa-star-half-stroke"></i> Status</label><select id="filterStatus" class="form-control"><option value="all">ทั้งหมด</option><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option><option value="overdue">เลยกำหนดส่ง</option></select></div>
+                    <div class="filter-group"><label Whitespace for="filterStatus"><i class="fas fa-star-half-stroke"></i> Status</label><select id="filterStatus" class="form-control"><option value="all">ทั้งหมด</option><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option><option value="overdue">เลยกำหนดส่ง</option></select></div>
                     <div class="filter-group-search"><label for="searchTask"><i class="fas fa-magnifying-glass"></i> ค้นหางาน</label><input type="text" id="searchTask" class="form-control" placeholder="ค้นหาชื่องานหรือรายละเอียด..."></div>
                 </div>
                 <div class="table-container glass-card">
                     <div class="table-header">
                         <h3 class="card-title"><i class="fas fa-folder-open"></i> รายการภารกิจฝ่ายยุทธการทั้งหมด</h3>
-                        <div style="display: flex; gap: 8px;"><button class="btn btn-primary" id="btnMasterTableMode" style="padding: 6px 12px; font-size: 12px;"><i class="fas fa-table"></i> ตาราง</button><button class="btn btn-secondary" id="btnMasterGanttMode" style="padding: 6px 12px; font-size: 12px;"><i class="fas fa-stream"></i> ไทม์ไลน์ (Gantt)</button></div>
+                        <div style="display: flex; gap: 8px;"><button class="btn btn-primary" id="btnMasterTableMode"><i class="fas fa-table"></i> ตาราง</button><button class="btn btn-secondary" id="btnMasterGanttMode"><i class="fas fa-stream"></i> ไทม์ไลน์</button></div>
                     </div>
-                    <div class="table-responsive" id="masterTableArea"><table class="data-table" id="masterTasksTable"><thead><tr><th>ภารกิจ (กดเพื่อดูรายละเอียด)</th><th>ผู้รับผิดชอบ</th><th>ความเร่งด่วน</th><th>ชั้นความลับ</th><th>วันที่เอกสารเข้า</th><th>กำหนดส่ง (Deadline)</th><th>สถานะ</th><th>การจัดการ</th></tr></thead><tbody></tbody></table></div>
-                    <div id="masterGanttArea" class="d-none" style="padding: 5px 0;"><div style="overflow-x: auto; background: rgba(0, 0, 0, 0.15); border-radius: 12px; border: 1px solid var(--glass-border); padding: 10px; -webkit-overflow-scrolling: touch;"><div id="masterGanttChart" style="min-width: 900px;"></div></div></div>
+                    <div class="table-responsive" id="masterTableArea"><table class="data-table" id="masterTasksTable"><thead><tr><th>ภารกิจ (กดเพื่อดูรายละเอียด)</th><th>ผู้รับผิดชอบ</th><th>ความเร่งด่วน</th><th>ชั้นความลับ</th><th>วันที่เอกสารเข้า</th><th>กำหนดส่ง</th><th>สถานะ</th><th>การจัดการ</th></tr></thead><tbody></tbody></table></div>
+                    <div id="masterGanttArea" class="d-none"><div style="overflow-x: auto; padding: 10px;"><div id="masterGanttChart" style="min-width: 900px;"></div></div></div>
                 </div>
             </section>
 
@@ -216,9 +214,9 @@
                     <div class="form-container glass-card">
                         <h3 class="card-title"><i class="fas fa-user-plus"></i> เพิ่มเจ้าหน้าที่ยุทธการคนใหม่</h3>
                         <form id="addMemberForm" class="member-form">
-                            <div class="form-group"><label for="memberName">ยศ - ชื่อ - นามสกุล</label><input type="text" id="memberName" class="form-control" required placeholder="เช่น ร.อ. สมชาย ใจดี"></div>
-                            <div class="form-group"><label for="memberRole">ตำแหน่งในฝ่ายยุทธการ</label><input type="text" id="memberRole" class="form-control" required placeholder="เช่น นายทหารวางแผนยุทธการ"></div>
-                            <div class="form-group"><label>เลือกภาพอวตาร</label><div class="avatar-options" id="avatarOptions"></div><input type="hidden" id="selectedAvatar" value="seed1"></div>
+                            <div class="form-group"><label for="memberName">ยศ - ชื่อ - นามสกุล</label><input type="text" id="memberName" class="form-control" required></div>
+                            <div class="form-group"><label for="memberRole">ตำแหน่งในฝ่ายยุทธการ</label><input type="text" id="memberRole" class="form-control" required></div>
+                            <div class="form-group"><label>เลือกภาพอวตาร</label><div class="avatar-options" id="avatarOptions"></div><input type="hidden" id="selectedAvatar" value=""></div>
                             <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-plus"></i> เพิ่มเจ้าหน้าที่เข้าระบบ</button>
                         </form>
                     </div>
@@ -228,105 +226,108 @@
 
             <section id="viewStaffKanban" class="content-view d-none">
                 <div class="staff-header-profile glass-card">
-                    <div class="staff-profile-main"><img id="staffProfileAvatar" src="" alt="Avatar" class="avatar-lg"><div class="staff-profile-details"><h2 id="staffProfileName">ชื่อเจ้าหน้าที่</h2><p id="staffProfileRole">ตำแหน่งงาน</p></div></div>
-                    <div class="staff-profile-stats">
-                        <div class="profile-stat-box" style="cursor:pointer;" onclick="app.navigateToTasksWithFilter(app.currentUser, 'รอดำเนินการ')"><span class="stat-num" id="staffStatTodo">0</span><span class="stat-lbl">รอดำเนินการ</span></div>
-                        <div class="profile-stat-box" style="cursor:pointer;" onclick="app.navigateToTasksWithFilter(app.currentUser, 'กำลังทำ')"><span class="stat-num" id="staffStatProgress">0</span><span class="stat-lbl">กำลังทำ</span></div>
-                        <div class="profile-stat-box" style="cursor:pointer;" onclick="app.navigateToTasksWithFilter(app.currentUser, 'รอการอนุมัติ')"><span class="stat-num" id="staffStatReview">0</span><span class="stat-lbl">รออนุมัติ</span></div>
-                        <div class="profile-stat-box" style="cursor:pointer;" onclick="app.navigateToTasksWithFilter(app.currentUser, 'เสร็จสิ้น')"><span class="stat-num" id="staffStatDone">0</span><span class="stat-lbl">เสร็จสิ้น</span></div>
+                    <div class="staff-profile-main">
+                        <img id="staffProfileAvatar" src="" alt="Avatar" class="avatar-lg">
+                        <div class="staff-profile-details">
+                            <h2 id="staffProfileName">ชื่อเจ้าหน้าที่</h2>
+                            <p id="staffProfileRole">ตำแหน่งงาน</p>
+                            <!-- ⚠️ จุดซ่อมแซมจุดที่ 1: เพิ่มช่องลิสต์ข้อมูลสถิติตัวเลขเพื่อป้องกันโค้ดค้าง -->
+                            <div style="font-size: 12px; margin-top: 5px; color: var(--text-muted);">
+                                ⏳ รอดำเนินการ: <span id="staffStatTodo">0</span> | 🔄 กำลังทำ: <span id="staffStatProgress">0</span> | 
+                                📑 รออนุมัติ: <span id="staffStatReview">0</span> |  ✅ สำเร็จ: <span id="staffStatDone">0</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="kanban-board">
-                    <div class="kanban-column" data-status="รอดำเนินการ"><div class="kanban-column-header"><span class="column-title"><span class="indicator bg-todo"></span> รอดำเนินการ</span><span class="column-count" id="countTodo">0</span></div><div class="kanban-cards-container" id="kanban-todo"></div></div>
-                    <div class="kanban-column" data-status="กำลังทำ"><div class="kanban-column-header"><span class="column-title"><span class="indicator bg-progress"></span> กำลังทำ</span><span class="column-count" id="countProgress">0</span></div><div class="kanban-cards-container" id="kanban-progress"></div></div>
-                    <div class="kanban-column" data-status="รอการอนุมัติ"><div class="kanban-column-header"><span class="column-title"><span class="indicator bg-review"></span> รอการอนุมัติ</span><span class="column-count" id="countReview">0</span></div><div class="kanban-cards-container" id="kanban-review"></div></div>
-                    <div class="kanban-column" data-status="เสร็จสิ้น"><div class="kanban-column-header"><span class="column-title"><span class="indicator bg-done"></span> เสร็จสิ้น</span><span class="column-count" id="countDone">0</span></div><div class="kanban-cards-container" id="kanban-done"></div></div>
+                    <div class="kanban-column" data-status="รอดำเนินการ"><div class="kanban-column-header"><span class="column-title">รอดำเนินการ</span><span class="column-count" id="countTodo">0</span></div><div class="kanban-cards-container" id="kanban-todo"></div></div>
+                    <div class="kanban-column" data-status="กำลังทำ"><div class="kanban-column-header"><span class="column-title">กำลังทำ</span><span class="column-count" id="countProgress">0</span></div><div class="kanban-cards-container" id="kanban-progress"></div></div>
+                    <div class="kanban-column" data-status="รอการอนุมัติ"><div class="kanban-column-header"><span class="column-title">รออนุมัติ</span><span class="column-count" id="countReview">0</span></div><div class="kanban-cards-container" id="kanban-review"></div></div>
+                    <div class="kanban-column" data-status="เสร็จสิ้น"><div class="kanban-column-header"><span class="column-title">เสร็จสิ้น</span><span class="column-count" id="countDone">0</span></div><div class="kanban-cards-container" id="kanban-done"></div></div>
                 </div>
             </section>
 
             <section id="viewStaffTasks" class="content-view d-none">
                 <div class="table-container glass-card">
-                    <div class="table-header"><h3 class="card-title" id="staffTaskListTitle"><i class="fas fa-folder-open"></i> รายการภารกิจทั้งหมดของฉัน</h3></div>
-                    <div class="table-responsive"><table class="data-table" id="staffTasksTable"><thead><tr><th>ภารกิจ (กดเพื่อดูรายละเอียด)</th><th>ความเร่งด่วน</th><th>ชั้นความลับ</th><th>วันที่เอกสารเข้า</th><th>กำหนดส่ง (Deadline)</th><th>สถานะ</th><th>การจัดการ</th></tr></thead><tbody></tbody></table></div>
+                    <div class="table-header"><h3 class="card-title" id="staffTaskListTitle"><i class="fas fa-folder-open"></i> รายการภารกิจของฉัน</h3></div>
+                    <div class="table-responsive"><table class="data-table" id="staffTasksTable"><thead><tr><th>ภารกิจ (กดเพื่อดูรายละเอียด)</th><th>ความเร่งด่วน</th><th>ชั้นความลับ</th><th>วันที่เอกสารเข้า</th><th>กำหนดส่ง</th><th>สถานะ</th><th>การจัดการ</th></tr></thead><tbody></tbody></table></div>
                 </div>
             </section>
 
             <section id="viewTeamCalendar" class="content-view d-none">
-                <div class="glass-card" style="height: calc(100vh - 100px); display: flex; flex-direction: column; padding: 15px; width: 100%; box-sizing: border-box;">
+                <div class="glass-card" style="height: calc(100vh - 100px); display: flex; flex-direction: column; padding: 15px;">
                     <h3 class="card-title" style="margin-bottom: 10px; text-align: center;"><i class="far fa-calendar-alt"></i> ปฏิทินยุทธการร่วม พล.ร.4</h3>
-                    <div id="fullCalendarContainer" style="flex-grow: 1; background: #ffffff; border-radius: 8px; padding: 10px; color: #000; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--glass-border);"></div>
+                    <div id="fullCalendarContainer" style="flex-grow: 1; background: #ffffff; border-radius: 8px; padding: 10px; color: #000; overflow: auto;"></div>
                 </div>
             </section>
 
             <section id="viewDataRepo" class="content-view d-none">
                 <div class="glass-card" style="height: 80vh; display: flex; flex-direction: column;">
                     <h3 class="card-title"><i class="fas fa-cloud-arrow-up"></i> คลังข้อมูลยุทธการ (Google Drive)</h3>
-                    <p class="text-muted">แฟ้มส่วนกลางสำหรับจัดเก็บและค้นหาเอกสารยุทธการ ไฟล์ PDF และรูปภาพ</p>
                     <div class="iframe-drive-wrapper"><iframe src="https://drive.google.com/embeddedfolderview?id=1fOM-scGSneTckW5yK-L4cbUj3_wO024_#list" frameborder="0"></iframe></div>
-                    <div style="margin-top: 15px; text-align: right;"><a href="https://drive.google.com/drive/folders/1fOM-scGSneTckW5yK-L4cbUj3_wO024_?usp=sharing" target="_blank" class="btn btn-primary"><i class="fas fa-external-link-alt"></i> เปิด Google Drive ในหน้าต่างใหม่</a></div>
                 </div>
             </section>
-
         </main>
     </div>
 
-    <div class="modal-backdrop" id="taskModal"><div class="modal glass-card"><div class="modal-header"><h3 class="modal-title" id="taskModalTitle"><i class="fas fa-circle-plus"></i> มอบหมายภารกิจยุทธการ</h3><button class="modal-close-btn" id="taskModalCloseBtn"><i class="fas fa-times"></i></button></div><form id="taskForm"><input type="hidden" id="taskIdField"><div class="modal-body"><div class="form-group"><label for="taskName"><span class="required">*</span> ชื่องาน / แผนยุทธการ</label><input type="text" id="taskName" class="form-control" required placeholder="ระบุหัวข้องานยุทธการ..."></div><div class="form-group"><label for="taskDescription">รายละเอียดการปฏิบัติงาน</label><textarea id="taskDescription" class="form-control text-area" rows="3" placeholder="ระบุรายละเอียด แผนยุทธศาสตร์ ขั้นตอนการดำเนินงาน..."></textarea></div><div class="form-row row-mobile-split"><div class="form-group col-6"><label for="taskAssignee"><span class="required">*</span> เจ้าหน้าที่ผู้รับผิดชอบ</label><select id="taskAssignee" class="form-control" required></select></div><div class="form-group col-6"><label for="taskStatus"><span class="required">*</span> สถานะงาน</label><select id="taskStatus" class="form-control" required><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option></select></div></div><div class="form-row row-mobile-split"><div class="form-group col-6"><label for="taskUrgency"><span class="required">*</span> ระดับความเร่งด่วน</label><select id="taskUrgency" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div><div class="form-group col-6"><label for="taskSecrecy"><span class="required">*</span> ชั้นความลับทางราชการ</label><select id="taskSecrecy" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div></div><div class="form-row row-mobile-three"><div class="form-group"><label for="taskReceiveDate"><span class="required">*</span> เอกสารเข้า</label><input type="date" id="taskReceiveDate" class="form-control" required></div><div class="form-group"><label for="taskStartDate"><span class="required">*</span> วันที่เริ่ม</label><input type="date" id="taskStartDate" class="form-control" required></div><div class="form-group"><label for="taskDeadline"><span class="required">*</span> กำหนดส่ง</label><input type="date" id="taskDeadline" class="form-control" required></div></div>
+    <!-- Modal สร้างและแก้ไขงาน -->
+    <div class="modal-backdrop" id="taskModal"><div class="modal glass-card"><div class="modal-header"><h3 class="modal-title" id="taskModalTitle">มอบหมายภารกิจ</h3><button type="button" class="modal-close-btn" id="taskModalCloseBtn"><i class="fas fa-times"></i></button></div><form id="taskForm"><input type="hidden" id="taskIdField"><div class="modal-body"><div class="form-group"><label for="taskName"><span class="required">*</span> ชื่องาน / แผนยุทธการ</label><input type="text" id="taskName" class="form-control" required></div><div class="form-group"><label for="taskDescription">รายละเอียดการปฏิบัติงาน</label><textarea id="taskDescription" class="form-control text-area" rows="3"></textarea></div><div class="form-row"><div class="form-group"><label for="taskAssignee"><span class="required">*</span> ผู้รับผิดชอบ</label><select id="taskAssignee" class="form-control" required></select></div><div class="form-group"><label for="taskStatus"><span class="required">*</span> สถานะงาน</label><select id="taskStatus" class="form-control" required><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option></select></div></div><div class="form-row"><div class="form-group"><label for="taskUrgency"><span class="required">*</span> ความเร่งด่วน</label><select id="taskUrgency" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div><div class="form-group"><label for="taskSecrecy"><span class="required">*</span> ชั้นความลับ</label><select id="taskSecrecy" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div></div><div class="form-row"><div class="form-group"><label for="taskReceiveDate"><span class="required">*</span> เอกสารเข้า</label><input type="date" id="taskReceiveDate" class="form-control" required></div><div class="form-group"><label for="taskStartDate"><span class="required">*</span> วันที่เริ่ม</label><input type="date" id="taskStartDate" class="form-control" required></div><div class="form-group"><label for="taskDeadline"><span class="required">*</span> กำหนดส่ง</label><input type="date" id="taskDeadline" class="form-control" required></div></div>
     
-    <div class="form-group" style="margin-top: 15px; border-top: 1px dashed var(--glass-border); padding-top: 15px;">
-        <label style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: block;">📋 การเพิ่มกิจย่อยภายในภารกิจ (Checklist)</label>
+    <div class="form-group" style="margin-top: 15px; border-top: 1px dashed #475569; padding-top: 15px;">
+        <label style="font-weight: 600; color: var(--text-primary);">📋 เพิ่มกิจย่อย (Checklist)</label>
         <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-            <input type="text" id="inputSubTaskName" class="form-control" placeholder="พิมพ์ชื่อกิจย่อยแล้วกดปุ่มบวก..." style="flex-grow: 1;">
-            <button type="button" class="btn btn-primary" id="btnAddSubTask" style="padding: 0 15px; height: auto;"><i class="fas fa-plus"></i></button>
+            <input type="text" id="inputSubTaskName" class="form-control" placeholder="พิมพ์ชื่อกิจย่อยแล้วกดปุ่มบวก...">
+            <button type="button" class="btn btn-primary" id="btnAddSubTask"><i class="fas fa-plus"></i></button>
         </div>
-        <div id="subTaskListContainer" style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #0f172a; padding: 8px; border-radius: 8px;"></div>
+        <div id="subTaskListContainer"></div>
     </div>
 
-    <div class="form-row" id="pdfUploadRow" style="margin-top: 15px;"><div class="form-group col-12"><label for="taskPdf"><i class="fas fa-file-pdf text-danger"></i> แนบเอกสารยุทธการ (PDF/รูปภาพ)</label><input type="file" id="taskPdf" class="form-control" accept=".pdf,image/*" multiple><small class="text-muted" id="pdfUploadStatus">ไม่มีไฟล์ที่แนบไว้</small></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="btnCancelTaskModal">ยกเลิก</button><button type="submit" class="btn btn-primary" id="btnSubmitTaskModal">บันทึกภารกิจ</button></div></form></div></div>
+    <div class="form-row" id="pdfUploadRow"><div class="form-group col-12"><label for="taskPdf"><i class="fas fa-file-pdf text-danger"></i> แนบเอกสารยุทธการ (PDF/รูปภาพ)</label><input type="file" id="taskPdf" class="form-control" accept=".pdf,image/*" multiple><small class="text-muted" id="pdfUploadStatus">ไม่มีไฟล์ที่แนบไว้</small></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="btnCancelTaskModal">ยกเลิก</button><button type="submit" class="btn btn-primary" id="btnSubmitTaskModal">บันทึกภารกิจ</button></div></form></div></div>
 
-    <div class="modal-backdrop" id="taskDetailModal"><div class="modal modal-lg glass-card"><div class="modal-header"><div class="title-with-badge"><span class="detail-secrecy-badge" id="detailSecrecyBadge">ลับที่สุด</span><h3 class="modal-title" id="detailTitle">รายละเอียดแผนงาน</h3></div><button class="modal-close-btn" id="taskDetailCloseBtn"><i class="fas fa-times"></i></button></div><div class="modal-body"><div class="detail-grid row-mobile-split"><div class="detail-main-info" style="display: flex; flex-direction: column;"><div class="detail-section" style="flex-grow: 1; display: flex; flex-direction: column;"><h4 class="detail-sec-title">รายละเอียดภารกิจ</h4><p class="detail-desc" id="detailDescription" style="flex-grow: 1; min-height: 120px; max-height: 200px; overflow-y: auto; margin-bottom: 15px;">ข้อมูลรายละเอียดงานยุทธการ...</p>
+    <!-- Modal ดูรายละเอียดงานจากในแอป -->
+    <div class="modal-backdrop" id="taskDetailModal"><div class="modal modal-lg glass-card"><div class="modal-header"><div class="title-with-badge"><span class="detail-secrecy-badge" id="detailSecrecyBadge">ปกติ</span><h3 class="modal-title" id="detailTitle">รายละเอียดแผนงาน</h3></div><button type="button" class="modal-close-btn" id="taskDetailCloseBtn"><i class="fas fa-times"></i></button></div><div class="modal-body"><div class="detail-grid"><div class="detail-main-info"><div class="detail-section"><h4 class="detail-sec-title">รายละเอียดภารกิจ</h4><p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p>
     
-    <div style="border-top: 1px dashed var(--glass-border); padding-top: 15px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
-        <h4 class="detail-sec-title" style="margin-bottom: 5px;"><i class="fas fa-tasks"></i> รายการกิจย่อยที่ต้องปฏิบัติและความคืบหน้า (<span id="detailSubTaskPercentage" style="color: #3b82f6; font-weight: 700;">0%</span>)</h4>
-        <div style="height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden; width: 100%;">
-            <div id="detailSubTaskProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 5px; transition: width 0.3s;"></div>
+    <!-- 📋 โซนติ๊ก Checklist และหลอดแถบแสดง % ในหน้าต่างรายละเอียด -->
+    <div style="border-top: 1px dashed #475569; padding-top: 15px; margin-top: 15px;">
+        <h4 class="detail-sec-title"><i class="fas fa-tasks"></i> ความคืบหน้าของกิจย่อย (<span id="detailSubTaskPercentage">0%</span>)</h4>
+        <div style="height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden; width: 100%; margin-bottom: 12px;">
+            <div id="detailSubTaskProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 0.3s;"></div>
         </div>
-        <div id="detailSubTaskListContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px; max-height: 200px; overflow-y: auto; padding-right: 5px;"></div>
+        <div id="detailSubTaskListContainer"></div>
     </div>
 
-    </div></div><div class="detail-meta-info glass-card"><h4 class="detail-sec-title"><i class="fas fa-circle-info"></i> ข้อมูลจำเพาะ</h4><div class="meta-item"><span class="meta-label">ผู้รับผิดชอบ:</span><div class="meta-value-user"><img id="detailAssigneeAvatar" src="" alt="Avatar" class="avatar-xs"><span id="detailAssigneeName">ร.อ. สมศักดิ์</span></div></div><div class="meta-item"><span class="meta-label">สถานะปัจจุบัน:</span><span class="status-badge" id="detailStatusBadge">รอการอนุมัติ</span></div><div class="meta-item"><span class="meta-label">ความเร่งด่วน:</span><span class="urgency-badge" id="detailUrgencyBadge">ด่วนที่สุด</span></div><div class="meta-item"><span class="meta-label">วันที่เอกสารเข้า:</span><span class="meta-value" id="detailReceiveDate">-</span></div><div class="meta-item"><span class="meta-label">วันที่เริ่มงาน:</span><span class="meta-value" id="detailStartDate">-</span></div><div class="meta-item"><span class="meta-label">กำหนดส่ง:</span><span class="meta-value" id="detailDeadline">-</span></div><div class="meta-item text-danger" id="detailOverdueBox"></div><div class="meta-item d-none" id="detailPdfItem" style="align-items: flex-start; border-top: 1px dashed var(--glass-border); padding-top: 15px; margin-top: 10px;"><span class="meta-label" style="margin-top: 8px;">เอกสารแนบ:</span><div id="pdfButtonsContainer" style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;"></div></div></div></div></div><div class="modal-footer" id="detailModalFooter"></div></div></div>
+    <!-- ⚠️ จุดซ่อมแซมประวัติล็อกงานเก่าค้าง -->
+    <div style="border-top: 1px dashed #475569; padding-top: 15px; margin-top: 15px;">
+        <h5 style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">📜 ประวัติการบันทึกงาน:</h5>
+        <div id="detailHistoryLog" style="font-size:11px; color:var(--text-muted); max-height:80px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;"></div>
+    </div>
 
+    </div><div class="detail-meta-info glass-card"><h4 class="detail-sec-title"><i class="fas fa-circle-info"></i> ข้อมูลจำเพาะ</h4><div class="meta-item"><span class="meta-label">ผู้รับผิดชอบ:</span><div class="meta-value-user"><img id="detailAssigneeAvatar" src="" alt="Avatar" class="avatar-xs"><span id="detailAssigneeName">-</span></div></div><div class="meta-item"><span class="meta-label">สถานะปัจจุบัน:</span><span class="status-badge" id="detailStatusBadge">-</span></div><div class="meta-item"><span class="meta-label">ความเร่งด่วน:</span><span class="urgency-badge" id="detailUrgencyBadge">-</span></div><div class="meta-item"><span class="meta-label">วันที่เอกสารเข้า:</span><span class="meta-value" id="detailReceiveDate">-</span></div><div class="meta-item"><span class="meta-label">วันที่เริ่มงาน:</span><span class="meta-value" id="detailStartDate">-</span></div><div class="meta-item"><span class="meta-label">กำหนดส่ง:</span><span class="meta-value" id="detailDeadline">-</span></div><div class="meta-item text-danger" id="detailOverdueBox"></div><div class="meta-item d-none" id="detailPdfItem"><span class="meta-label">เอกสารแนบ:</span><div id="pdfButtonsContainer"></div></div></div></div></div><div class="modal-footer" id="detailModalFooter"></div></div></div>
+
+    <!-- Modal สำหรับเปิดรายละเอียดปฏิทินที่มาจาก Google Calendar ล้วนๆ -->
     <div class="modal-backdrop" id="eventModal">
         <div class="modal glass-card" style="max-width: 500px;">
             <div class="modal-header">
                 <h3 class="modal-title" style="font-size: 16px;"><i class="far fa-calendar-check"></i> รายละเอียดกิจกรรม (Google Calendar)</h3>
-                <button class="modal-close-btn" onclick="document.getElementById('eventModal').classList.remove('show')"><i class="fas fa-times"></i></button>
+                <button type="button" class="modal-close-btn" onclick="document.getElementById('eventModal').classList.remove('show')"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body" style="color: var(--text-primary);">
                 <h4 id="eventTitle" style="color: #3b82f6; margin-bottom: 15px; font-size: 18px; font-weight: 700;">ชื่อกิจกรรม</h4>
-                <p style="margin-bottom: 10px; font-size: 14px;"><strong><i class="far fa-clock"></i> ระยะเวลา:</strong> <span id="eventTime" style="color: var(--text-muted);">-</span></p>
+                <p style="margin-bottom: 10px; font-size: 14px;"><strong>ระยะเวลา:</strong> <span id="eventTime">-</span></p>
                 <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
-                <p style="margin-bottom: 8px; font-size: 14px;"><strong><i class="fas fa-align-left"></i> รายละเอียด:</strong></p>
-                <div id="eventDescription" style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; min-height: 80px; font-size: 13px; color: var(--text-muted); white-space: pre-wrap;">ไม่มีรายละเอียด</div>
-                
-                <div id="eventModalAttachmentsWrapper" class="d-none" style="margin-top: 15px; border-top: 1px dashed var(--glass-border); padding-top: 10px;">
-                    <p style="margin-bottom: 8px; font-size: 14px;"><strong><i class="fas fa-paperclip"></i> ไฟล์แนบจาก Google Drive:</strong></p>
+                <div id="eventDescription" style="padding: 12px; border-radius: 8px; min-height: 80px; font-size: 13px; white-space: pre-wrap;">ไม่มีรายละเอียด</div>
+                <div id="eventModalAttachmentsWrapper" class="d-none" style="margin-top: 15px; border-top: 1px dashed #475569; padding-top: 10px;">
+                    <p style="margin-bottom: 8px; font-size: 14px;"><strong>ไฟล์แนบจาก Google Drive:</strong></p>
                     <div id="eventAttachmentsBox"></div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <a id="eventLinkBtn" href="#" target="_blank" class="btn btn-primary" style="width: 100%; text-align: center;"><i class="fas fa-external-link-alt"></i> เปิดเนื้อหาฉบับเต็มใน Google Calendar</a>
-            </div>
+            <div class="modal-footer"><a id="eventLinkBtn" href="#" target="_blank" class="btn btn-primary" style="width: 100%; text-align: center;"><i class="fas fa-external-link-alt"></i> เปิดเนื้อหาฉบับเต็มใน Google Calendar</a></div>
         </div>
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-
-    <script>
-      if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
-    </script>
-    <script src="app.js?v=99"></script>
+    <script src="app.js?v=101"></script>
 </body>
 </html>
