@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * โค้ดฉบับเต็มถาวร 100%: ล็อกระบบสลับเมนู + ปฏิทิน Checkbox ความคืบหน้ากิจย่อยสมบูรณ์สูงสุด
+ * ฉบับเสถียรภาพถาวร 100% (แก้บั๊ก Loop ค้าง): ระบบกิจย่อยคำนวณ % + กู้ชีพกำลังพล แดชบอร์ด และปฏิทินร่วมเสถียรสูงสุด
  */
 
 class AttachmentStore {
@@ -65,7 +65,7 @@ class App {
             this.attachments = new AttachmentStore();
             this.attachments.init().then(async () => { await this.syncWithCloudflare(); this.render(); })
             .catch(async err => { await this.syncWithCloudflare(); this.render(); });
-        } catch (err) { alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message); }
+        } catch (err) { console.error("Constructor initialization fail:", err); }
     }
 
     initDOMElements() {
@@ -163,6 +163,7 @@ class App {
         } catch (err) {}
     }
 
+    // 🔒 แก้ไขจุดบกพร่องเรื่อง Loop ค้าง: แยกส่วนสลับ View ให้ปลอดภัยขึ้น
     switchView(viewName) {
         Object.keys(this.views).forEach(name => { 
             if(!this.views[name]) return; 
@@ -174,6 +175,10 @@ class App {
         switch (viewName) { case 'leader-dashboard': thaiTitle = 'แดชบอร์ดภาพรวมยุทธการ'; break; case 'leader-tasks': thaiTitle = 'แฟ้มสะสมภารกิจฝ่ายยุทธการ'; break; case 'leader-team': thaiTitle = 'บัญชีรายชื่อกำลังพล'; break; case 'staff-kanban': thaiTitle = 'กระดานปฏิบัติการทางยุทธการ'; break; case 'staff-tasks': thaiTitle = 'รายการปฏิบัติการเดี่ยว'; break; case 'team-calendar': thaiTitle = 'ปฏิทินยุทธการส่วนกลาง'; break; }
         if (this.pageTitle) this.pageTitle.innerHTML = thaiTitle;
         
+        this.renderCurrentViewOnly(viewName);
+    }
+
+    renderCurrentViewOnly(viewName) {
         if (viewName === 'leader-dashboard') this.renderLeaderDashboard(); 
         else if (viewName === 'leader-tasks') this.renderMasterTaskListTable(); 
         else if (viewName === 'leader-team') this.renderTeamMembers(); 
@@ -248,7 +253,9 @@ class App {
             sub.isDone = isChecked; const progress = this.getTaskProgress(task);
             const pctText = document.getElementById('detailSubTaskPercentage'); const pBar = document.getElementById('detailSubTaskProgressBar');
             if(pctText) pctText.textContent = `${progress}%`; if(pBar) pBar.style.width = `${progress}%`;
-            this.saveData(); this.switchView(this.currentView); this.viewTaskDetails(taskId);
+            this.saveData(); 
+            this.renderCurrentViewOnly(this.currentView); // 🔒 แก้เป็นฟังก์ชันเจาะจงเพื่อห้าม Loop รวน
+            this.viewTaskDetails(taskId);
         }
     }
 
@@ -372,6 +379,8 @@ class App {
         if(this.detailStartDate) this.detailStartDate.textContent = task.startDate; 
         if(this.detailDeadline) this.detailDeadline.textContent = task.deadline;
 
+        if (this.detailOverdueBox) { if (this.isOverdue(task)) { this.detailOverdueBox.innerHTML = 'ภารกิจนี้เลยกำหนดส่งความมั่นคง!'; this.detailOverdueBox.classList.remove('d-none'); } else { this.detailOverdueBox.classList.add('d-none'); } }
+
         this.renderDetailModalFooter(task);
 
         const subTasksContainer = document.getElementById('detailSubTaskListContainer');
@@ -487,6 +496,8 @@ class App {
         });
     }
 
+    isOverdue(task) { if (!task || task.status === 'เสร็จสิ้น') return false; const now = new Date(); now.setHours(0,0,0,0); return now > new Date(task.deadline); }
+    getFilteredTasks() { return this.tasks; }
     getRawRankWeight(name) { return 500; }
     getUrgencyBadge(urgency) { return `<span>${urgency}</span>`; }
     getSecrecyBadge(secrecy) { return `<span>${secrecy}</span>`; }
@@ -513,7 +524,7 @@ class App {
     populateAssigneeDropdowns() {
         if (this.taskAssigneeInput) { this.taskAssigneeInput.innerHTML = ''; this.staff.forEach(member => { const opt = document.createElement('option'); opt.value = member.id; opt.textContent = member.name; this.taskAssigneeInput.appendChild(opt); }); }
     }
-    render() { this.populateRoleSwitcher(); this.populateAssigneeDropdowns(); this.switchView(this.currentView); }
+    render() { this.populateRoleSwitcher(); this.populateAssigneeDropdowns(); this.renderLeaderDashboard(); }
 }
 
 let app;
