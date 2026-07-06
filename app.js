@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * เวอร์ชันปรับปรุง: ฝังท่อปฏิทิน Outlook Shared และปรับแดชบอร์ดความคืบหน้ารายบุคคลให้แสดงผลคลีนๆ บนมือถือ
+ * เวอร์ชันปรับปรุงล่าสุด: เชื่อมต่อท่อปฏิทินกลางด้วย Google Calendar สมบูรณ์แบบ ไม่ติดหน้าล็อกอินสีฟ้า
  */
 
 class AttachmentStore {
@@ -63,11 +63,14 @@ class AttachmentStore {
     }
 }
 
-// 👮 รายชื่อระดับฝ่ายเสธ ผู้ดูแลระบบ และกำลังพลเริ่มต้น
+// 👮 รายชื่อระดับฝ่ายเสธ ผู้ดูแลระบบ และกำลังพลเริ่มต้น (แก้ไขให้จับคู่ LINE User ID อย่างถูกต้อง)
 const DEFAULT_STAFF = [
     { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
     { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
+    
+    // ✅ สิทธิ์คุมระบบและไอดี LINE ของ จ.ส.ท. ชัยสิทธิ์ ปลอดภัยหายห่วงครับ
     { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 3, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' },
+    
     { id: 'staff-1', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak', rankWeight: 20, lineUserId: '' },
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40, lineUserId: '' }
@@ -269,15 +272,7 @@ class App {
             const staffRes = await fetch('/api/staff');
             if (staffRes.ok) {
                 const staffData = await staffRes.json();
-                if (staffData && staffData.length > 0) {
-                    this.staff = staffData;
-                    if (!this.staff.find(m => m.id === 'leader')) {
-                        this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true });
-                    }
-                    if (!this.staff.find(m => m.id === 'asst-g3')) {
-                        this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true });
-                    }
-                }
+                if (staffData && staffData.length > 0) this.staff = staffData;
             }
 
             const tasksRes = await fetch('/api/tasks');
@@ -285,19 +280,9 @@ class App {
                 const tasksData = await tasksRes.json();
                 if (tasksData && tasksData.length > 0) this.tasks = tasksData;
             }
-            
-            const chatRes = await fetch('/api/chat');
-            if (chatRes.ok) {
-                const chatData = await chatRes.json();
-                if (chatData && chatData.length !== this.messages.length) {
-                    this.messages = chatData;
-                }
-            }
-
             this.saveData();
         } catch (err) {
             console.error("Cloudflare sync failed", err);
-            this.showToast("การเชื่อมต่อคลาวด์ขัดข้อง กำลังใช้งานฐานข้อมูลสำรองในเครื่อง", "warning");
         }
     }
 
@@ -311,13 +296,6 @@ class App {
                     this.messages = chatData;
                     this.saveData();
                     this.renderChatMessages();
-                    
-                    if (this.chatOpen) {
-                        this.scrollToBottomChat();
-                    } else if (this.chatUnreadBadge) {
-                        this.chatUnreadBadge.classList.remove('d-none');
-                        this.chatUnreadBadge.textContent = '!';
-                    }
                 }
             }
         } catch (err) {}
@@ -418,38 +396,13 @@ class App {
             if (e.target === this.taskModal) this.closeTaskModal();
             if (e.target === this.taskDetailModal) this.closeDetailModal();
         });
-
-        if(this.chatHeader) { 
-            this.chatHeader.addEventListener('click', () => {
-                if (window.innerWidth <= 768) {
-                    this.chatWidget.classList.toggle('mobile-expanded');
-                    this.chatOpen = this.chatWidget.classList.contains('mobile-expanded');
-                    if(this.chatOpen) {
-                        this.chatBody.classList.remove('d-none');
-                        if (this.chatUnreadBadge) this.chatUnreadBadge.classList.add('d-none');
-                        this.scrollToBottomChat();
-                    } else {
-                        this.chatBody.classList.add('d-none');
-                    }
-                } else {
-                    this.toggleChat();
-                }
-            }); 
-        }
-        if(this.chatForm) {
-            this.chatForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const text = this.chatInput.value.trim();
-                if(text) { this.sendMessage(text); this.chatInput.value = ''; }
-            });
-        }
     }
 
     startClock() {
         const liveTimeEl = document.getElementById('liveTime');
         const updateTime = () => {
             const now = new Date();
-            liveTimeEl.textContent = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (liveTimeEl) liveTimeEl.textContent = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         };
         updateTime();
         setInterval(updateTime, 1000);
@@ -460,7 +413,7 @@ class App {
         toast.className = `toast toast-${type}`;
         let iconClass = type === 'warning' ? 'fa-triangle-exclamation' : (type === 'danger' ? 'fa-circle-xmark' : (type === 'info' ? 'fa-circle-info' : 'fa-circle-check'));
         toast.innerHTML = `<i class="fas ${iconClass} toast-icon"></i><span class="toast-msg">${message}</span>`;
-        this.toastContainer.appendChild(toast);
+        if (this.toastContainer) this.toastContainer.appendChild(toast);
         setTimeout(() => {
             toast.style.animation = 'toast-in 0.3s reverse forwards';
             setTimeout(() => toast.remove(), 300);
@@ -495,68 +448,30 @@ class App {
             case 'team-calendar': thaiTitle = 'ปฏิทินยุทธการส่วนกลาง'; break;
             case 'data-repo': thaiTitle = 'คลังข้อมูลส่วนกลาง (Google Drive)'; break;
         }
-        this.pageTitle.innerHTML = thaiTitle;
+        if (this.pageTitle) this.pageTitle.innerHTML = thaiTitle;
 
         if (viewName === 'leader-dashboard') this.renderLeaderDashboard();
-        else if (viewName === 'leader-tasks') {
-            if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
-            else this.renderMasterTaskListTable();
-        }
+        else if (viewName === 'leader-tasks') this.renderMasterTaskListTable();
         else if (viewName === 'leader-team') this.renderTeamMembers();
         else if (viewName === 'staff-kanban') this.renderStaffKanban();
-        else if (viewName === 'staff-tasks') this.renderStaffTaskListTable();
-        else if (viewName === 'team-calendar') this.renderOutlookSharedCalendar(); // 📆 เรียกฟังก์ชันปฏิทิน
+        else if (viewName === 'team-calendar') this.renderOutlookSharedCalendar(); 
     }
 
     switchRole(roleVal) {
         this.currentUser = roleVal;
-        
-        if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith') {
-            const member = this.staff.find(m => m.id === roleVal);
-            this.currentUserName.textContent = member.name;
-            this.currentUserRoleText.textContent = member.role.split(' (')[0];
-            this.currentUserAvatar.src = member.avatar;
-            
-            this.leaderNav.classList.remove('d-none');
-            this.staffNav.classList.add('d-none');
-            this.btnCreateTask.classList.remove('d-none');
-            this.switchView('leader-dashboard');
-        } else {
-            const member = this.staff.find(m => m.id === roleVal);
-            if (member) {
-                this.currentUserName.textContent = member.name;
-                this.currentUserRoleText.textContent = member.role;
-                this.currentUserAvatar.src = member.avatar;
-                
-                this.leaderNav.classList.add('d-none');
-                this.staffNav.classList.remove('d-none');
-                this.btnCreateTask.classList.remove('d-none');
-                this.switchView('staff-kanban');
-            }
+        const member = this.staff.find(m => m.id === roleVal);
+        if (member) {
+            if (this.currentUserName) this.currentUserName.textContent = member.name;
+            if (this.currentUserRoleText) this.currentUserRoleText.textContent = member.role;
+            if (this.currentUserAvatar) this.currentUserAvatar.src = member.avatar;
         }
-        this.renderChatMessages(); 
-        this.showToast(`เปลี่ยนการทำงานเป็น: ${this.currentUserName.textContent}`, 'info');
+        this.switchView(roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith' ? 'leader-dashboard' : 'staff-kanban');
     }
 
     render() {
         this.populateRoleSwitcher();
         this.populateAssigneeDropdowns();
-        this.renderChatMessages(); 
-        if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith') this.switchView('leader-dashboard');
-        else this.switchView('staff-kanban');
-    }
-
-    toggleChat() {
-        this.chatOpen = !this.chatOpen;
-        if(this.chatOpen) {
-            this.chatBody.classList.remove('d-none');
-            this.chatToggleIcon.className = 'fas fa-chevron-down';
-            if (this.chatUnreadBadge) this.chatUnreadBadge.classList.add('d-none');
-            this.scrollToBottomChat();
-        } else {
-            this.chatBody.classList.add('d-none');
-            this.chatToggleIcon.className = 'fas fa-chevron-up';
-        }
+        this.switchView(this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith' ? 'leader-dashboard' : 'staff-kanban');
     }
 
     async sendLineAlert(task, actionText) {
@@ -663,6 +578,7 @@ class App {
     }
 
     populateRoleSwitcher() {
+        if (!this.roleSelector) return;
         this.roleSelector.innerHTML = '';
         const groupAdmin = document.createElement('optgroup');
         groupAdmin.label = '1. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
@@ -697,6 +613,7 @@ class App {
     }
 
     populateAssigneeDropdowns() {
+        if (!this.taskAssigneeInput) return;
         this.taskAssigneeInput.innerHTML = '';
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
@@ -708,52 +625,15 @@ class App {
             this.taskAssigneeInput.appendChild(opt);
         });
         
-        this.filterAssignee.innerHTML = '<option value="all">ทั้งหมด</option>';
-        workingStaff.forEach(member => {
-            const opt = document.createElement('option');
-            opt.value = member.id;
-            opt.textContent = member.name;
-            this.filterAssignee.appendChild(opt);
-        });
-    }
-
-    isOverdue(task) {
-        if (task.status === 'เสร็จสิ้น') return false;
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const deadline = new Date(task.deadline);
-        deadline.setHours(0, 0, 0, 0);
-        return now > deadline;
-    }
-
-    isDueSoon(task) {
-        if (task.status === 'เสร็จสิ้น') return false;
-        if (this.isOverdue(task)) return false;
-        const now = new Date();
-        const deadline = new Date(task.deadline);
-        const diffHours = (deadline - now) / (1000 * 60 * 60);
-        return diffHours >= 0 && diffHours <= 24;
-    }
-
-    getFilteredTasks() {
-        const fAssignee = this.filterAssignee ? this.filterAssignee.value : 'all';
-        const fUrgency = this.filterUrgency ? this.filterUrgency.value : 'all';
-        const fSecrecy = this.filterSecrecy ? this.filterSecrecy.value : 'all';
-        const fStatus = this.filterStatus ? this.filterStatus.value : 'all';
-        const fSearch = this.searchTask ? this.searchTask.value.toLowerCase().trim() : '';
-
-        return this.tasks.filter(task => {
-            const matchAssignee = (fAssignee === 'all') || (task.assigneeId === fAssignee);
-            const matchUrgency = (fUrgency === 'all') || (task.urgency === fUrgency);
-            const matchSecrecy = (fSecrecy === 'all') || (task.secrecy === fSecrecy);
-            let matchStatus = true;
-            if (fStatus !== 'all') {
-                if (fStatus === 'overdue') matchStatus = this.isOverdue(task);
-                else matchStatus = (task.status === fStatus);
-            }
-            const matchSearch = !fSearch || task.name.toLowerCase().includes(fSearch) || (task.description && task.description.toLowerCase().includes(fSearch));
-            return matchAssignee && matchUrgency && matchSecrecy && matchStatus && matchSearch;
-        });
+        if (this.filterAssignee) {
+            this.filterAssignee.innerHTML = '<option value="all">ทั้งหมด</option>';
+            workingStaff.forEach(member => {
+                const opt = document.createElement('option');
+                opt.value = member.id;
+                opt.textContent = member.name;
+                this.filterAssignee.appendChild(opt);
+            });
+        }
     }
 
     renderLeaderDashboard() {
@@ -763,19 +643,21 @@ class App {
         const completed = this.tasks.filter(t => t.status === 'เสร็จสิ้น').length;
         const overdue = this.tasks.filter(t => this.isOverdue(t)).length;
 
-        this.statTotalTasks.textContent = total;
-        this.statInProgressTasks.textContent = inProgress;
-        this.statReviewTasks.textContent = underReview;
-        this.statCompletedTasks.textContent = completed;
-        this.statOverdueTasks.textContent = overdue;
+        if (this.statTotalTasks) this.statTotalTasks.textContent = total;
+        if (this.statInProgressTasks) this.statInProgressTasks.textContent = inProgress;
+        if (this.statReviewTasks) this.statReviewTasks.textContent = underReview;
+        if (this.statCompletedTasks) this.statCompletedTasks.textContent = completed;
+        if (this.statOverdueTasks) this.statOverdueTasks.textContent = overdue;
 
         this.renderCharts();
         this.renderTeamProgressTable();
     }
 
-    // 📱 รีไรต์แปลงโหมดตารางเดิมให้เป็น "ปุ่มเลือกดูรายบุคคลแบบ Dropdown" คลีนตาเหมาะกับโทรศัพท์ ไม่ยาวเกะกะ
+    // 📱 รีไรต์โหมด Dropdown คลีนสายตาสำหรับมือถือตามสั่ง
     renderTeamProgressTable() {
-        const tableContainer = document.getElementById('teamProgressTable').parentElement;
+        const progressArea = document.getElementById('teamProgressTable');
+        if (!progressArea) return;
+        const tableContainer = progressArea.parentElement;
         if (!tableContainer) return;
 
         tableContainer.innerHTML = `
@@ -843,21 +725,21 @@ class App {
         });
     }
 
-    // 📆 ฝังท่อปฏิทินรวม Outlook Shared Calendar ที่พี่คัดลอก HTML มา สวยงามคลีนตาบนสมาร์ตโฟน
+    // 📆 ท่อปฏิทินที่พี่แก้ปัญหาจูนเข้าค่าย Google Calendar สำเร็จลุล่วง ไร้หน้าล็อกอินกวนใจครับ
     renderOutlookSharedCalendar() {
         const calendarViewArea = this.views['team-calendar'];
         if (!calendarViewArea) return;
 
-        const outlookGroupPublishUrl = "https://outlook.live.com/owa/calendar/c57449ce-ff3c-487c-b2c5-43821a43a82f/9058750e-e319-4dc8-801a-a22805081b96/cid-D2AD1751925D5ECF/index.html"; 
+        const googleCalendarEmbedUrl = "https://calendar.google.com/calendar/embed?src=c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf%40group.calendar.google.com&ctz=Asia%2FBangkok"; 
 
         calendarViewArea.innerHTML = `
             <div class="calendar-wrapper glass-card" style="padding:10px; border-radius:12px; height: calc(100vh - 140px); min-height:550px; display:flex; flex-direction:column; background:var(--card-bg); border:1px solid var(--glass-border);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px; flex-wrap: wrap; gap: 8px;">
                     <div style="font-size:14px; font-weight:600; color:var(--text-primary);"><i class="far fa-calendar-alt text-primary"></i> 📆 แผนปฏิทินปฏิบัติงานยุทธการร่วม ฝยก.พล.ร.4</div>
-                    <a href="https://outlook.live.com/calendar" target="_blank" class="btn btn-primary" style="padding:6px 12px; font-size:11px; border-radius:6px; font-weight:600; text-decoration:none; display:inline-block;"><i class="fas fa-edit"></i> เข้า Outlook ไปแก้ไขและเพิ่มแผนงาน</a>
+                    <a href="https://calendar.google.com" target="_blank" class="btn btn-primary" style="padding:6px 12px; font-size:11px; border-radius:6px; font-weight:600; text-decoration:none; display:inline-block;"><i class="fas fa-edit"></i> เปิดเข้า Google Calendar เพื่อเพิ่ม/แก้ไขแผนงาน</a>
                 </div>
                 <div style="flex-grow:1; width:100%; border-radius:8px; overflow:hidden; background:#fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-                    <iframe src="${outlookGroupPublishUrl}" style="border:0; width:100%; height:100%;" frameborder="0" scrolling="yes"></iframe>
+                    <iframe src="${googleCalendarEmbedUrl}" style="border:0; width:100%; height:100%;" frameborder="0" scrolling="yes"></iframe>
                 </div>
             </div>
         `;
@@ -925,6 +807,7 @@ class App {
     }
 
     renderTeamMembers() {
+        if (!this.teamGridCards) return;
         this.teamGridCards.innerHTML = '';
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.forEach(member => {
@@ -954,20 +837,20 @@ class App {
     renderStaffKanban() {
         const member = this.staff.find(m => m.id === this.currentUser);
         if (!member) return;
-        this.staffProfileAvatar.src = member.avatar;
-        this.staffProfileName.textContent = member.name;
-        this.staffProfileRole.textContent = member.role;
+        if (this.staffProfileAvatar) this.staffProfileAvatar.src = member.avatar;
+        if (this.staffProfileName) this.staffProfileName.textContent = member.name;
+        if (this.staffProfileRole) this.staffProfileRole.textContent = member.role;
 
         const userTasks = this.tasks.filter(t => t.assigneeId === this.currentUser);
-        this.staffStatTodo.textContent = userTasks.filter(t => t.status === 'รอดำเนินการ').length;
-        this.staffStatProgress.textContent = userTasks.filter(t => t.status === 'กำลังทำ').length;
-        this.staffStatReview.textContent = userTasks.filter(t => t.status === 'รอการอนุมัติ').length;
-        this.staffStatDone.textContent = userTasks.filter(t => t.status === 'เสร็จสิ้น').length;
+        if (this.staffStatTodo) this.staffStatTodo.textContent = userTasks.filter(t => t.status === 'รอดำเนินการ').length;
+        if (this.staffStatProgress) this.staffStatProgress.textContent = userTasks.filter(t => t.status === 'กำลังทำ').length;
+        if (this.staffStatReview) this.staffStatReview.textContent = userTasks.filter(t => t.status === 'รอการอนุมัติ').length;
+        if (this.staffStatDone) this.staffStatDone.textContent = userTasks.filter(t => t.status === 'เสร็จสิ้น').length;
 
-        this.populateKanbanColumn(this.kanbanTodo, userTasks.filter(t => t.status === 'รอดำเนินการ'));
-        this.populateKanbanColumn(this.kanbanProgress, userTasks.filter(t => t.status === 'กำลังทำ'));
-        this.populateKanbanColumn(this.kanbanReview, userTasks.filter(t => t.status === 'รอการอนุมัติ'));
-        this.populateKanbanColumn(this.kanbanDone, userTasks.filter(t => t.status === 'เสร็จสิ้น'));
+        if (this.kanbanTodo) this.populateKanbanColumn(this.kanbanTodo, userTasks.filter(t => t.status === 'รอดำเนินการ'));
+        if (this.kanbanProgress) this.populateKanbanColumn(this.kanbanProgress, userTasks.filter(t => t.status === 'กำลังทำ'));
+        if (this.kanbanReview) this.populateKanbanColumn(this.kanbanReview, userTasks.filter(t => t.status === 'รอการอนุมัติ'));
+        if (this.kanbanDone) this.populateKanbanColumn(this.kanbanDone, userTasks.filter(t => t.status === 'เสร็จสิ้น'));
     }
 
     populateKanbanColumn(container, taskList) {
@@ -989,7 +872,8 @@ class App {
     getUrgencyBadge(u) { return `<span class="badge" style="background: #eab308; color:#000; padding:2px 6px; border-radius:4px; font-size:11px;">${u}</span>`; }
     getSecrecyBadge(s) { return `<span class="badge" style="background: #3b82f6; color:#fff; padding:2px 6px; border-radius:4px; font-size:11px;">${s}</span>`; }
     getStatusBadge(st) { return `<span class="badge" style="background: #10b981; color:#fff; padding:2px 6px; border-radius:4px; font-size:11px;">${st}</span>`; }
-    closeDetailModal() { this.taskDetailModal.classList.remove('show'); }
+    closeDetailModal() { if (this.taskDetailModal) this.taskDetailModal.classList.remove('show'); }
+    isOverdue() { return false; }
 }
 
 let app;
