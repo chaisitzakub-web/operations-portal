@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับผสานร่างงานห้วงเดียวกันอัตโนมัติ (Auto-Merge Calendar Events) + ดึง PDF ครบทุกภารกิจย่อย 100%
+ * ฉบับแก้ปฏิทินเบียดกัน: บังคับใช้ชื่อวันแบบย่อ (อา., จ., อ.)
  */
 
 class AttachmentStore {
@@ -93,7 +93,7 @@ class App {
 
         this.staffProfileAvatar = document.getElementById('staffProfileAvatar'); this.staffProfileName = document.getElementById('staffProfileName');
         this.staffProfileRole = document.getElementById('staffProfileRole'); this.staffStatTodo = document.getElementById('staffStatTodo');
-        this.staffStatProgress = document.getElementById('staffStatProgress'); this.staffStatReview = document.getElementById('staffStaffReview');
+        this.staffStatProgress = document.getElementById('staffStatProgress'); this.staffStatReview = document.getElementById('staffStatReview');
         this.staffStatDone = document.getElementById('staffStatDone'); this.kanbanTodo = document.getElementById('kanban-todo');
         this.kanbanProgress = document.getElementById('kanban-progress'); this.kanbanReview = document.getElementById('kanban-review');
         this.kanbanDone = document.getElementById('kanban-done'); this.staffTasksTableBody = document.querySelector('#staffTasksTable tbody');
@@ -379,7 +379,7 @@ class App {
         });
     }
 
-    // 📅 ระบบปฏิทิน Custom (ผสานร่างข้อมูลอัตโนมัติเมื่อเจองานห้วงเวลาเดียวกัน)
+    // 📅 ระบบปฏิทิน (ผสานร่างข้อมูล + บังคับย่อชื่อวัน)
     renderOutlookSharedCalendar() {
         const calendarContainer = document.getElementById('fullCalendarContainer'); 
         if (!calendarContainer) return;
@@ -390,7 +390,6 @@ class App {
         }
         calendarContainer.innerHTML = ''; 
 
-        // 🟢 กลไกการรวมร่างงานตาม "ห้วงเวลาเดียวกัน" (startDate และ deadline ตรงกัน)
         const groupedTasks = {};
         this.tasks.forEach(t => {
             const key = `${t.startDate}_${t.deadline}`;
@@ -402,11 +401,7 @@ class App {
 
         const appEvents = Object.keys(groupedTasks).map(key => {
             const tasksInGroup = groupedTasks[key];
-            
-            // ผสานชื่อชื่องานเข้าด้วยกันเพื่อโชว์ในแท่งเดียว
             let title = tasksInGroup.map(t => t.name).join(' + ');
-            
-            // คำนวณสีตามลำดับความสำคัญของกลุ่มงานรวม
             let color = '#94a3b8'; 
             if (tasksInGroup.some(t => this.isOverdue(t))) color = '#ef4444';
             else if (tasksInGroup.some(t => t.status === 'รอการอนุมัติ')) color = '#a855f7';
@@ -425,7 +420,7 @@ class App {
                 color: color,
                 extendedProps: { 
                     isAppTask: true,
-                    allTasks: tasksInGroup // ส่งอาเรย์ของภารกิจย่อยทั้งหมดติดไปด้วย
+                    allTasks: tasksInGroup
                 }
             };
         });
@@ -438,6 +433,10 @@ class App {
             },
             initialView: 'dayGridMonth',
             locale: 'th',
+            
+            // 👉 ตรงนี้คือพระเอกครับ! บังคับให้ปฏิทินใช้ชื่อวันแบบย่อ (อา., จ., อ.)
+            dayHeaderFormat: { weekday: 'short' },
+            
             height: '100%',
             contentHeight: 'auto',
             handleWindowResize: true,
@@ -456,7 +455,6 @@ class App {
                 if (info.event.extendedProps.isAppTask) {
                     const allTasks = info.event.extendedProps.allTasks;
                     if (allTasks && allTasks.length > 0) {
-                        // ดีดเรียกฟังก์ชันแสดงกล่องรายละเอียดแบบรวมกลุ่ม
                         this.viewMergedTaskDetails(allTasks);
                     }
                 } else {
@@ -486,17 +484,14 @@ class App {
         this.calendarInstance.render();
     }
 
-    // 🔬 ฟังก์ชันประกอบร่าง Modal รายละเอียด เมื่องานในปฏิทินโดนมัดรวมกัน (ดึงรายละเอียดและ PDF ครบถ้วน)
     viewMergedTaskDetails(allTasks) {
         if (!allTasks || allTasks.length === 0) return;
         
-        // หากห้วงเวลานั้นมีงานชิ้นเดียว ให้ใช้ระบบดีดหน้าต่างเดี่ยวตัวเดิมปกติ
         if (allTasks.length === 1) {
             this.viewTaskDetails(allTasks[0].id);
             return;
         }
 
-        // กรณีเป็นกลุ่มภารกิจห้วงเวลาเดียวกัน ทำการผสานข้อความแสดงผลกลางจอ
         if(this.detailTitle) this.detailTitle.textContent = `[รวมแผนงานห้วงเวลาเดียวกัน] ทั้งหมด ${allTasks.length} ภารกิจ`; 
         
         if(this.detailDescription) {
@@ -539,7 +534,6 @@ class App {
             this.detailModalFooter.appendChild(btnClose);
         }
 
-        // 📂 รวมพลังปุ่มดาวน์โหลดไฟล์ PDF ทุกชิ้นในทุกงานย่อยขึ้นมาสแตนด์บายกริบ
         if (this.detailPdfItem && this.pdfButtonsContainer) {
             this.pdfButtonsContainer.innerHTML = '';
             let hasAnyPdf = false;
@@ -582,7 +576,6 @@ class App {
             else this.detailPdfItem.classList.add('d-none');
         }
 
-        // รวมประวัติล็อกการบันทึกงาน
         const historyLogContainer = document.getElementById('detailHistoryLog');
         if (historyLogContainer) {
             historyLogContainer.innerHTML = '';
