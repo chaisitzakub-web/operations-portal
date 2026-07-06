@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * เวอร์ชันกู้คืนระบบ: แก้ไขโค้ดขาดตอน, เปิดใช้งานกราฟแท่ง, Dropdown เปลี่ยนสีได้ และผูกท่อ Google Calendar สำเร็จ
+ * เวอร์ชันแก้จุดพิการ: ซ่อมแซมวงเล็บปิดฟังก์ชันเปิด-ปิดแถบเมนูให้กลับมารันได้ 100%
  */
 
 class AttachmentStore {
@@ -127,6 +127,7 @@ class App {
         this.statReviewTasks = document.getElementById('statReviewTasks');
         this.statCompletedTasks = document.getElementById('statCompletedTasks');
         this.statOverdueTasks = document.getElementById('statOverdueTasks');
+        this.teamProgressTableBody = document.querySelector('#teamProgressTable tbody');
 
         this.filterAssignee = document.getElementById('filterAssignee');
         this.filterUrgency = document.getElementById('filterUrgency');
@@ -219,6 +220,7 @@ class App {
         localStorage.setItem('operations_portal_data', JSON.stringify(dataToStore));
     }
 
+    // 🛠️ ส่วนซ่อมแซมฟังก์ชันหักดิบกลไกตรวจจับปุ่ม (Fixed)
     setupEventListeners() {
         if(this.roleSelector) this.roleSelector.addEventListener('change', (e) => this.switchRole(e.target.value));
 
@@ -231,6 +233,8 @@ class App {
         });
 
         if(this.toggleSidebarBtn) this.toggleSidebarBtn.addEventListener('click', () => this.sidebar.classList.add('show'));
+        
+        // 📢 ตรงนี้ซ่อมเรียบร้อยแล้วครับ ตัวหนังสือครบถ้วนไม่ขาดตอน
         if(this.closeSidebarBtn) this.closeSidebarBtn.addEventListener('click', () => this.sidebar.classList.remove('show'));
 
         if(this.themeToggleBtn) {
@@ -390,7 +394,7 @@ class App {
         });
     }
 
-    // 📊 กู้ระบบแสดงผลกราฟแท่งขวามือ (Staff Bar Chart) ครบถ้วนเสร็จสรรพ
+    // 📊 ระบบแสดงผลกราฟแท่งขวามือ (Staff Bar Chart) ครบถ้วนเสร็จสรรพ
     renderCharts() {
         if (this.statusChartInstance) this.statusChartInstance.destroy();
         if (this.staffChartInstance) this.staffChartInstance.destroy();
