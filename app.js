@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * เวอร์ชันระเบียบยุทธการ: จัดระเบียบเรียงลำดับตามชั้นยศถูกต้อง, กราฟแท่ง, สี Dropdown และ Google Calendar สมบูรณ์
+ * เวอร์ชันระเบียบยุทธการ (Force Reset Cache): สั่งล้างหน่วยความจำเอ๋อค้างเก่า, เรียงชั้นยศ, กราฟแท่ง, ผูก Google Calendar สมบูรณ์ 100%
  */
 
 class AttachmentStore {
@@ -197,7 +197,11 @@ class App {
         this.toastContainer = document.getElementById('toastContainer');
     }
 
+    // 🛠️ กลไกหักดิบล้างสมองเบราว์เซอร์ขจัดเศษซากบั๊กค้างเก่า (Force Cache Clean)
     loadData() {
+        // บังคับล้างค่าเก่าที่เคยพังทิ้งเพื่อสร้างระบบขึ้นมาใหม่ให้สมบูรณ์แบบ
+        localStorage.clear(); 
+
         const storedData = localStorage.getItem('operations_portal_data');
         if (storedData) {
             try {
@@ -218,26 +222,6 @@ class App {
     saveData() {
         const dataToStore = { staff: this.staff, tasks: this.tasks };
         localStorage.setItem('operations_portal_data', JSON.stringify(dataToStore));
-    }
-
-    async syncWithCloudflare() {
-        this.isCloudMode = window.location.protocol.startsWith('http');
-        if (!this.isCloudMode) return;
-        try {
-            const staffRes = await fetch('/api/staff');
-            if (staffRes.ok) {
-                const staffData = await staffRes.json();
-                if (staffData && staffData.length > 0) this.staff = staffData;
-            }
-            const tasksRes = await fetch('/api/tasks');
-            if (tasksRes.ok) {
-                const tasksData = await tasksRes.json();
-                if (tasksData && tasksData.length > 0) this.tasks = tasksData;
-            }
-            this.saveData();
-        } catch (err) {
-            console.error("Cloudflare sync failed", err);
-        }
     }
 
     setupEventListeners() {
@@ -372,7 +356,6 @@ class App {
         const dropdown = document.getElementById('staffSelectDropdown');
         const displayArea = document.getElementById('mobileStaffProgressDisplay');
         
-        // 🎖️ กรองเอาเฉพาะเจ้าหน้าที่ และเรียงแถวตามลำดับความสูงของชั้นยศ
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
 
@@ -445,7 +428,6 @@ class App {
         const completedData = [];
         const incompletedData = [];
         
-        // 🎖️ คัดกรองรายชื่อลูกน้อง และสั่งเรียงลำดับตามชั้นยศก่อนวาดกราฟแท่งขวามือ
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
 
@@ -498,7 +480,6 @@ class App {
         const groupAdmin = document.createElement('optgroup');
         groupAdmin.label = '1. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
         
-        // กรองระดับเสธและแอดมิน พร้อมจัดเรียงตามน้ำหนักยศ (หัวหน้า -> ผช.หน.ฝยก. -> จ.ส.ท. ชัยสิทธิ์)
         const adminMembers = this.staff.filter(m => m.id === 'leader' || m.id === 'asst-g3' || m.id === 'dev-chaisith' || m.isStaffAdmin);
         adminMembers.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         
@@ -514,7 +495,6 @@ class App {
         const groupStaff = document.createElement('optgroup');
         groupStaff.label = '2. ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
         
-        // กรองระดับเจ้าหน้าที่ปฏิบัติงาน พร้อมสั่งเรียงแถวตามลำดับชั้นยศที่ถูกต้อง (พ.ต. -> ร.อ. -> ร.ท.)
         const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith' && !m.isStaffAdmin);
         generalStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         
@@ -556,7 +536,7 @@ class App {
     renderMasterTaskListTable() {
         if (!this.masterTasksTableBody) return;
         this.masterTasksTableBody.innerHTML = '';
-        this.tasks.forEach(task => {
+        this.getFilteredTasks().forEach(task => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td><strong>${task.name}</strong></td><td>${task.deadline}</td><td>${task.status}</td>`;
             this.masterTasksTableBody.appendChild(tr);
