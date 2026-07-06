@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับร่างทอง (Ultimate Version): มีระบบตาข่ายนิรภัยกู้ชีพแอดมิน (ensureAdminStaff) + ระบบเชื่อมโยงหน้าสถิติ + Gantt Chart ครบ 100%
+ * ฉบับไร้แชท (No-Chat) + ชื่องานกดดูรายละเอียดได้ + กดสถิติพุ่งไปหน้างานทันที
  */
 
 class AttachmentStore {
@@ -19,8 +19,8 @@ class AttachmentStore {
             const transaction = this.db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
             const filesArray = Array.from(files).map(f => ({ fileName: f.name, fileType: f.type, fileData: f }));
-            const record = { taskId: taskId, isMultiple: true, files: filesArray };
-            const request = store.put(record); request.onsuccess = () => resolve(); request.onerror = (e) => reject(e);
+            const request = store.put({ taskId: taskId, isMultiple: true, files: filesArray });
+            request.onsuccess = () => resolve(); request.onerror = (e) => reject(e);
         });
     }
     getAttachment(taskId) {
@@ -53,13 +53,13 @@ const DEFAULT_TASKS = [];
 
 class App {
     constructor() {
-        this.staff = []; this.tasks = []; this.messages = [];
+        this.staff = []; this.tasks = []; 
         this.currentUser = 'leader'; this.currentView = 'leader-dashboard'; this.isCloudMode = false; this.tasksViewMode = 'table'; 
-        this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null; this.chatOpen = false;
+        this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
 
         this.initDOMElements(); this.loadData(); this.setupEventListeners(); this.startClock();
         this.attachments = new AttachmentStore();
-        this.attachments.init().then(async () => { await this.syncWithCloudflare(); this.render(); if (this.isCloudMode) setInterval(() => this.syncChatOnly(), 2000); })
+        this.attachments.init().then(async () => { await this.syncWithCloudflare(); this.render(); })
         .catch(async err => { await this.syncWithCloudflare(); this.render(); });
     }
 
@@ -118,14 +118,8 @@ class App {
         this.pdfUploadRow = document.getElementById('pdfUploadRow'); this.taskPdfInput = document.getElementById('taskPdf');
         this.pdfUploadStatus = document.getElementById('pdfUploadStatus'); this.detailPdfItem = document.getElementById('detailPdfItem');
         this.pdfButtonsContainer = document.getElementById('pdfButtonsContainer'); this.toastContainer = document.getElementById('toastContainer');
-
-        this.chatWidget = document.getElementById('chatWidget'); this.chatHeader = document.getElementById('chatHeader');
-        this.chatBody = document.getElementById('chatBody'); this.chatMessages = document.getElementById('chatMessages');
-        this.chatForm = document.getElementById('chatForm'); this.chatInput = document.getElementById('chatInput');
-        this.chatToggleIcon = document.getElementById('chatToggleIcon'); this.chatUnreadBadge = document.getElementById('chatUnreadBadge');
     }
 
-    // 🛡️ ระบบตาข่ายนิรภัย: บังคับสร้างบัญชีหัวหน้าและแอดมินกลับคืนมาเสมอถ้าระบบหาไม่เจอ (ป้องกันแอดมินหาย)
     ensureAdminStaff() {
         if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
         if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
@@ -133,45 +127,26 @@ class App {
     }
 
     loadData() {
-        if (!localStorage.getItem('operations_portal_reset_v3')) { localStorage.clear(); localStorage.setItem('operations_portal_reset_v3', 'true'); }
+        if (!localStorage.getItem('operations_portal_reset_v4')) { localStorage.clear(); localStorage.setItem('operations_portal_reset_v4', 'true'); }
         const storedData = localStorage.getItem('operations_portal_data');
         if (storedData) {
             try {
                 const parsed = JSON.parse(storedData);
                 this.staff = parsed.staff && parsed.staff.length > 0 ? parsed.staff : DEFAULT_STAFF;
                 this.tasks = parsed.tasks ? parsed.tasks : DEFAULT_TASKS;
-                this.messages = parsed.messages || []; 
-            } catch (e) { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; }
-        } else { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; }
-        
-        this.ensureAdminStaff(); // เรียกใช้ตาข่ายนิรภัย!
-        this.saveData();
+            } catch (e) { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; }
+        } else { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; }
+        this.ensureAdminStaff(); this.saveData();
     }
 
-    saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks, messages: this.messages })); }
+    saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks })); }
 
     async syncWithCloudflare() {
         this.isCloudMode = window.location.protocol.startsWith('http'); if (!this.isCloudMode) return;
         try {
             const staffRes = await fetch('/api/staff'); if (staffRes.ok) { const data = await staffRes.json(); if (data && data.length > 0) this.staff = data; }
             const tasksRes = await fetch('/api/tasks'); if (tasksRes.ok) { const data = await tasksRes.json(); if (data && data.length > 0) this.tasks = data; }
-            const chatRes = await fetch('/api/chat'); if (chatRes.ok) { const data = await chatRes.json(); if (data && data.length !== this.messages.length) this.messages = data; }
-            this.ensureAdminStaff(); // เรียกใช้ตาข่ายนิรภัย!
-            this.saveData();
-        } catch (err) {}
-    }
-
-    async syncChatOnly() {
-        if (!this.isCloudMode) return;
-        try {
-            const chatRes = await fetch('/api/chat');
-            if (chatRes.ok) {
-                const data = await chatRes.json();
-                if (data && data.length > this.messages.length) {
-                    this.messages = data; this.saveData(); this.renderChatMessages();
-                    if (this.chatOpen) this.scrollToBottomChat(); else if (this.chatUnreadBadge) { this.chatUnreadBadge.classList.remove('d-none'); this.chatUnreadBadge.textContent = '!'; }
-                }
-            }
+            this.ensureAdminStaff(); this.saveData();
         } catch (err) {}
     }
 
@@ -210,9 +185,6 @@ class App {
         if(this.taskStatusInput) this.taskStatusInput.addEventListener('change', () => { if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid'; });
         if(this.taskPdfInput) { this.taskPdfInput.addEventListener('change', (e) => { const files = e.target.files; if(this.pdfUploadStatus) { if (files.length === 0) this.pdfUploadStatus.textContent = 'ไม่มีไฟล์'; else if (files.length === 1) this.pdfUploadStatus.textContent = `เลือกแล้ว 1 ไฟล์`; else this.pdfUploadStatus.textContent = `เลือกแล้ว ${files.length} ไฟล์`; } }); }
         window.addEventListener('click', (e) => { if (e.target === this.taskModal) this.closeTaskModal(); if (e.target === this.taskDetailModal) this.closeDetailModal(); });
-
-        if(this.chatHeader) { this.chatHeader.addEventListener('click', () => { if (window.innerWidth <= 768) { this.chatWidget.classList.toggle('mobile-expanded'); this.chatOpen = this.chatWidget.classList.contains('mobile-expanded'); if(this.chatOpen) { this.chatBody.classList.remove('d-none'); if (this.chatUnreadBadge) this.chatUnreadBadge.classList.add('d-none'); this.scrollToBottomChat(); } else { this.chatBody.classList.add('d-none'); } } else { this.toggleChat(); } }); }
-        if(this.chatForm) { this.chatForm.addEventListener('submit', (e) => { e.preventDefault(); const text = this.chatInput.value.trim(); if(text) { this.sendMessage(text); this.chatInput.value = ''; } }); }
     }
 
     startClock() {
@@ -252,30 +224,34 @@ class App {
                 this.switchView('staff-kanban');
             }
         }
-        this.renderChatMessages(); this.showToast(`เปลี่ยนบทบาทเป็น: ${this.currentUserName.textContent}`, 'info');
+        this.showToast(`เปลี่ยนบทบาทเป็น: ${this.currentUserName.textContent}`, 'info');
     }
 
     render() {
-        this.populateRoleSwitcher(); this.populateAssigneeDropdowns(); this.renderChatMessages();
+        this.populateRoleSwitcher(); this.populateAssigneeDropdowns();
         const member = this.staff.find(m => m.id === this.currentUser);
         if(member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) this.switchView('leader-dashboard'); else this.switchView('staff-kanban');
     }
 
-    // ✅ กู้คืนระบบเชื่อมโยงหน้าสถิติไปยังหน้ากรองงานแฟ้มสะสม (ที่ลืมใส่ไป)
-    navigateToTasksWithFilter(statusValue) {
-        if (this.filterAssignee) this.filterAssignee.value = 'all';
+    // ✅ กู้คืนระบบเชื่อมโยงหน้าสถิติไปยังหน้ากรองงานแฟ้มสะสม และคัดกรองอัตโนมัติ
+    navigateToTasksWithFilter(assigneeId, statusValue) {
+        if (this.filterAssignee) this.filterAssignee.value = assigneeId;
         if (this.filterUrgency) this.filterUrgency.value = 'all';
         if (this.filterSecrecy) this.filterSecrecy.value = 'all';
         if (this.searchTask) this.searchTask.value = '';
         if (this.filterStatus) this.filterStatus.value = statusValue;
-        this.switchView('leader-tasks');
+        
+        // ถ้าเป็นหัวหน้า/แอดมิน ให้ไปหน้า แฟ้มภารกิจทั้งหมด (leader-tasks)
+        const member = this.staff.find(m => m.id === this.currentUser);
+        if (member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) {
+            this.switchView('leader-tasks');
+            const btnTable = document.getElementById('btnMasterTableMode');
+            if(btnTable) btnTable.click(); else this.renderMasterTaskListTable();
+        } else {
+            // ถ้าเป็นลูกน้อง ให้ไปหน้า ภารกิจของฉัน (staff-tasks)
+            this.switchView('staff-tasks');
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    toggleChat() {
-        this.chatOpen = !this.chatOpen;
-        if(this.chatOpen) { this.chatBody.classList.remove('d-none'); this.chatToggleIcon.className = 'fas fa-chevron-down'; if (this.chatUnreadBadge) this.chatUnreadBadge.classList.add('d-none'); this.scrollToBottomChat(); } 
-        else { this.chatBody.classList.add('d-none'); this.chatToggleIcon.className = 'fas fa-chevron-up'; }
     }
 
     async sendLineAlert(task, actionText) {
@@ -286,26 +262,6 @@ class App {
         const payload = { to: targetLineId, messages: [{ type: "text", text: messageText }] };
         if (this.isCloudMode) { try { await fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, payload: payload }) }); } catch (err) {} }
     }
-
-    async sendMessage(text) {
-        let senderNameStr = this.currentUserName.textContent;
-        const msg = { id: Date.now().toString(), senderId: this.currentUser, senderName: senderNameStr, text: text, time: new Date().toISOString() };
-        this.messages.push(msg); this.saveData(); this.renderChatMessages(); this.scrollToBottomChat();
-        if (this.isCloudMode) { try { await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(msg) }); } catch (err) {} }
-    }
-
-    renderChatMessages() {
-        if(!this.chatMessages) return; this.chatMessages.innerHTML = '';
-        if(this.messages.length === 0) { this.chatMessages.innerHTML = '<div style="text-align:center; color: var(--text-muted); font-size: 12px; margin-top: 50px;">เริ่มทักทายทีมได้เลย!</div>'; return; }
-        this.messages.forEach(msg => {
-            const isSelf = msg.senderId === this.currentUser; const div = document.createElement('div'); div.className = `chat-msg ${isSelf ? 'self' : 'other'}`;
-            const timeStr = new Date(msg.time).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
-            div.innerHTML = `${!isSelf ? `<span class="chat-msg-sender">${msg.senderName}</span>` : ''} <div>${msg.text}</div> <div style="font-size: 9px; text-align: right; opacity: 0.6; margin-top: 3px;">${timeStr}</div>`;
-            this.chatMessages.appendChild(div);
-        });
-    }
-
-    scrollToBottomChat() { if(this.chatMessages) this.chatMessages.scrollTop = this.chatMessages.scrollHeight; }
 
     getRankWeight(name) {
         if (!name) return 500;
@@ -382,15 +338,23 @@ class App {
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3'); workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         dropdown.innerHTML = '<option value="" style="color: #64748b;">-- แตะเลือกรายชื่อเจ้าหน้าที่ --</option>';
         workingStaff.forEach(member => { dropdown.innerHTML += `<option value="${member.id}" style="color: #0f172a; background: #ffffff;">${member.name}</option>`; });
+        
         dropdown.addEventListener('change', (e) => {
             const memberId = e.target.value; if(!memberId) { displayArea.style.display = 'none'; return; }
             const member = this.staff.find(m => m.id === memberId); const memberTasks = this.tasks.filter(t => t.assigneeId === memberId);
             const total = memberTasks.length; const done = memberTasks.filter(t => t.status === 'เสร็จสิ้น').length; const prog = memberTasks.filter(t => t.status === 'กำลังทำ').length; const review = memberTasks.filter(t => t.status === 'รอการอนุมัติ').length; const percentage = total > 0 ? Math.round((done / total) * 100) : 0;
             displayArea.style.display = 'block';
+            
+            // ✅ เปลี่ยนกล่องสถิติในแดชบอร์ดให้กลายเป็นปุ่มกดได้ (คลิกแล้ววิ่งไปหน้าตาราง)
             displayArea.innerHTML = `
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;"><img src="${member.avatar}" style="width:45px; height:45px; border-radius:50%;"><div><h4 style="margin:0; font-size:15px; font-weight:700; color:var(--text-primary);">${member.name}</h4><small style="color:var(--text-muted); font-size:12px;">${member.role}</small></div></div>
                 <div style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:5px;"><span>ความคืบหน้าภารกิจรวม</span> <span style="color:var(--primary);">${percentage}%</span></div><div style="height:10px; background:rgba(255,255,255,0.1); border-radius:5px; overflow:hidden;"><div style="width:${percentage}%; height:100%; background:linear-gradient(90deg, var(--primary), #10b981); border-radius:5px;"></div></div></div>
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; text-align:center; font-size:11px; margin-top:12px;"><div style="background:rgba(148,163,184,0.08); padding:6px; border-radius:6px;"><b style="display:block; font-size:14px; color:var(--text-primary);">${total}</b>งานรวม</div><div style="background:rgba(234,179,8,0.08); padding:6px; border-radius:6px; color:#eab308;"><b style="display:block; font-size:14px;">${prog}</b>ทำอยู่</div><div style="background:rgba(168,85,247,0.08); padding:6px; border-radius:6px; color:#a855f7;"><b style="display:block; font-size:14px;">${review}</b>รอตรวจ</div><div style="background:rgba(16,185,129,0.08); padding:6px; border-radius:6px; color:#10b981;"><b style="display:block; font-size:14px;">${done}</b>สำเร็จ</div></div>
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; text-align:center; font-size:11px; margin-top:12px;">
+                    <div style="background:rgba(148,163,184,0.08); padding:6px; border-radius:6px; cursor:pointer;" onclick="app.navigateToTasksWithFilter('${member.id}', 'all')" title="ดูงานทั้งหมด"><b style="display:block; font-size:14px; color:var(--text-primary); pointer-events:none;">${total}</b>งานรวม</div>
+                    <div style="background:rgba(234,179,8,0.08); padding:6px; border-radius:6px; color:#eab308; cursor:pointer;" onclick="app.navigateToTasksWithFilter('${member.id}', 'กำลังทำ')" title="ดูงานที่กำลังทำ"><b style="display:block; font-size:14px; pointer-events:none;">${prog}</b>ทำอยู่</div>
+                    <div style="background:rgba(168,85,247,0.08); padding:6px; border-radius:6px; color:#a855f7; cursor:pointer;" onclick="app.navigateToTasksWithFilter('${member.id}', 'รอการอนุมัติ')" title="ดูงานที่รอตรวจ"><b style="display:block; font-size:14px; pointer-events:none;">${review}</b>รอตรวจ</div>
+                    <div style="background:rgba(16,185,129,0.08); padding:6px; border-radius:6px; color:#10b981; cursor:pointer;" onclick="app.navigateToTasksWithFilter('${member.id}', 'เสร็จสิ้น')" title="ดูงานที่สำเร็จแล้ว"><b style="display:block; font-size:14px; pointer-events:none;">${done}</b>สำเร็จ</div>
+                </div>
             `;
         });
     }
@@ -445,8 +409,15 @@ class App {
             const tr = document.createElement('tr');
             let deadlineClass = ''; let overdueBadgeText = '';
             if (this.isOverdue(task)) { deadlineClass = 'deadline-danger'; overdueBadgeText = ' <span class="badge-overdue status-badge">เลยกำหนด</span>'; } else if (this.isDueSoon(task)) { deadlineClass = 'deadline-warning'; overdueBadgeText = ' <span class="badge-progress status-badge">ส่งใน 24 ชม.</span>'; }
+            
+            // ✅ ทำให้ชื่องานคลิกได้เลย เพื่อเปิดดูรายละเอียด
             tr.innerHTML = `
-                <td><strong>${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger" title="มีไฟล์"></i>' : ''}</strong><div style="font-size: 11px; color: var(--text-muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description || ''}</div></td>
+                <td>
+                    <strong style="cursor: pointer; color: var(--primary); text-decoration: underline;" onclick="app.viewTaskDetails('${task.id}')" title="คลิกเพื่อดูรายละเอียดและเอกสารแนบ">
+                        ${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger" title="มีไฟล์"></i>' : ''}
+                    </strong>
+                    <div style="font-size: 11px; color: var(--text-muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description || ''}</div>
+                </td>
                 <td><div class="table-user"><img src="${member.avatar}" class="avatar-xs"><span class="table-user-name">${member.name}</span></div></td>
                 <td>${this.getUrgencyBadge(task.urgency)}</td><td>${this.getSecrecyBadge(task.secrecy)}</td><td>${task.receiveDate || task.startDate}</td><td class="${deadlineClass}">${task.deadline}${overdueBadgeText}</td><td>${this.getStatusBadge(task.status)}</td>
                 <td><div style="display: flex; gap: 8px;"><button class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px;" onclick="app.viewTaskDetails('${task.id}')" title="ดูรายละเอียด"><i class="fas fa-eye"></i></button><button class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; color: var(--primary);" onclick="app.openEditTaskModal('${task.id}')" title="แก้ไข"><i class="fas fa-edit"></i></button><button class="btn btn-secondary" style="padding: 6px 10px; font-size: 12px; color: var(--color-overdue);" onclick="app.deleteTask('${task.id}')" title="ลบงาน"><i class="fas fa-trash"></i></button></div></td>
@@ -561,7 +532,7 @@ class App {
             const oldStatus = task.status; task.status = newStatus;
             if (!task.history) task.history = [];
             task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
-            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}" (ลากวางผ่าน Kanban)`);
+            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"ผ่านกระดาน Kanban`);
             this.saveData(); this.renderStaffKanban();
             if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
             this.showToast(`ย้ายภารกิจไปยัง "${newStatus}" เรียบร้อย`);
@@ -583,8 +554,14 @@ class App {
             if (this.isOverdue(task)) { deadlineClass = 'deadline-danger'; overdueText = ' <span class="badge-overdue status-badge">เลยกำหนด</span>'; }
             else if (this.isDueSoon(task)) { deadlineClass = 'deadline-warning'; overdueText = ' <span class="badge-progress status-badge">ด่วน (24ชม)</span>'; }
             
+            // ✅ ทำให้ชื่องานคลิกได้เลย เพื่อเปิดดูรายละเอียด
             tr.innerHTML = `
-                <td><strong>${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger"></i>' : ''}</strong><div style="font-size: 11px; color: var(--text-muted); max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description}</div></td>
+                <td>
+                    <strong style="cursor: pointer; color: var(--primary); text-decoration: underline;" onclick="app.viewTaskDetails('${task.id}')" title="คลิกเพื่อดูรายละเอียดและเอกสารแนบ">
+                        ${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger"></i>' : ''}
+                    </strong>
+                    <div style="font-size: 11px; color: var(--text-muted); max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description}</div>
+                </td>
                 <td>${this.getUrgencyBadge(task.urgency)}</td><td>${this.getSecrecyBadge(task.secrecy)}</td><td>${task.receiveDate || task.startDate}</td>
                 <td class="${deadlineClass}">${task.deadline}${overdueText}</td><td>${this.getStatusBadge(task.status)}</td>
                 <td>
