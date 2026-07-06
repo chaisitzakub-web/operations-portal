@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับติดเกราะป้องกัน: ระบบเพิ่มกิจย่อย + ซ่อมแซมข้อมูลเก่าอัตโนมัติ + ป้องกันแอปล่ม (Auto-Repair)
+ * ฉบับสมบูรณ์ (แก้ไขบั๊ก): มีระบบเพิ่มกิจย่อย + ติ๊กสถานะ + คำนวณความคืบหน้า 100% 
  */
 
 class AttachmentStore {
@@ -55,17 +55,34 @@ const DEFAULT_TASKS = [];
 
 class App {
     constructor() {
-        this.staff = []; this.tasks = []; 
-        this.currentUser = 'leader'; this.currentView = 'leader-dashboard'; this.isCloudMode = false; this.tasksViewMode = 'table'; 
-        this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
+        this.staff = []; 
+        this.tasks = []; 
+        this.currentUser = 'leader'; 
+        this.currentView = 'leader-dashboard'; 
+        this.isCloudMode = false; 
+        this.tasksViewMode = 'table'; 
+        this.statusChartInstance = null; 
+        this.staffChartInstance = null; 
+        this.draggedCardId = null; 
+        this.editingStaffId = null;
         this.calendarInstance = null;
         this.tempSubTasks = []; 
 
         try {
-            this.initDOMElements(); this.loadData(); this.setupEventListeners(); this.startClock();
+            this.initDOMElements(); 
+            this.loadData(); 
+            this.setupEventListeners(); 
+            this.startClock();
+            
             this.attachments = new AttachmentStore();
-            this.attachments.init().then(async () => { await this.syncWithCloudflare(); this.render(); })
-            .catch(async err => { console.warn("DB Storage Error", err); await this.syncWithCloudflare(); this.render(); });
+            this.attachments.init().then(async () => { 
+                await this.syncWithCloudflare(); 
+                this.render(); 
+            }).catch(async err => { 
+                console.warn("DB Storage Error", err); 
+                await this.syncWithCloudflare(); 
+                this.render(); 
+            });
         } catch (err) {
             alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message);
             console.error(err);
@@ -129,6 +146,13 @@ class App {
         this.pdfButtonsContainer = document.getElementById('pdfButtonsContainer'); this.toastContainer = document.getElementById('toastContainer');
     }
 
+    // 🔬 ฟังก์ชันที่หายไป (ถูกเติมกลับมาแล้ว)
+    ensureAdminStaff() {
+        if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
+        if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
+        if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
+    }
+
     getTaskProgress(task) {
         if (!task.subTasks || !Array.isArray(task.subTasks) || task.subTasks.length === 0) {
             return task.status === 'เสร็จสิ้น' ? 100 : 0;
@@ -138,12 +162,10 @@ class App {
     }
 
     loadData() {
-        // 🔥 ระบบซ่อมแซมฐานข้อมูลอัตโนมัติ (ป้องกันแอปล่ม)
         const storedData = localStorage.getItem('operations_portal_data');
         if (storedData) {
             try {
                 const parsed = JSON.parse(storedData);
-                // เช็คว่าข้อมูลพังไหม ถ้าพังให้ใช้ค่าเริ่มต้นแทน
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : JSON.parse(JSON.stringify(DEFAULT_TASKS));
             } catch (e) { 
