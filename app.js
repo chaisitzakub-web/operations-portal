@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับแก้บั๊ก API ดูดข้อมูล Google Calendar หาย (แปลงวันที่เป็น ISO 100%)
+ * ฉบับแก้บั๊กวันที่และเมนูตกขอบ: บังคับย่อวัน + เรียงเมนูแนวตั้ง
  */
 
 class AttachmentStore {
@@ -432,19 +432,23 @@ class App {
             },
             initialView: 'dayGridMonth',
             locale: 'th',
-            dayHeaderFormat: { weekday: 'short' },
+            
+            // 👉 ตรงนี้คือพระเอกครับ! หักคอให้ใช้ชื่อวันย่อ 100% ไม่ยอมให้พิมพ์เต็มเด็ดขาด
+            dayHeaderContent: function(arg) {
+                const shortDays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+                return shortDays[arg.date.getDay()];
+            },
+            
             height: '100%',
             contentHeight: 'auto',
             handleWindowResize: true,
             
             eventSources: [
                 {
-                    // 🔥 แปลงวันที่ให้ Google Calendar API รับรู้แบบ 100% ป้องกันงานหาย (RFC3339 format)
                     events: async (info, successCallback, failureCallback) => {
                         const apiKey = 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM';
                         const calId = 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com';
                         
-                        // แปลงเวลาเริ่มต้นและสิ้นสุดของปฏิทินให้เป็นแบบเป๊ะๆ ของ Google
                         const timeMin = info.start.toISOString();
                         const timeMax = info.end.toISOString();
                         
@@ -453,7 +457,7 @@ class App {
                         try {
                             const res = await fetch(url);
                             if (!res.ok) {
-                                console.error("API Error: ไม่สามารถดึงข้อมูลจาก Google ได้ กรุณาตรวจสอบสิทธิ์ Public ของ Calendar");
+                                console.error("API Error");
                                 failureCallback("API Error");
                                 return;
                             }
