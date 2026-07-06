@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับสมบูรณ์: ดูดไฟล์แนบ (Attachments) จาก Google Calendar มาแสดงเป็นปุ่มโหลด 100%
+ * ฉบับแก้บั๊ก API ดูดข้อมูล Google Calendar หาย (แปลงวันที่เป็น ISO 100%)
  */
 
 class AttachmentStore {
@@ -379,7 +379,6 @@ class App {
         });
     }
 
-    // 📅 ระบบปฏิทิน (ผสานร่างข้อมูล + เขียน API Fetcher เองเพื่อดึง PDF จาก Google)
     renderOutlookSharedCalendar() {
         const calendarContainer = document.getElementById('fullCalendarContainer'); 
         if (!calendarContainer) return;
@@ -433,22 +432,31 @@ class App {
             },
             initialView: 'dayGridMonth',
             locale: 'th',
-            dayHeaderFormat: { weekday: 'short' }, // ย่อชื่อวัน
+            dayHeaderFormat: { weekday: 'short' },
             height: '100%',
             contentHeight: 'auto',
             handleWindowResize: true,
             
             eventSources: [
                 {
-                    // 🔥 เปลี่ยนจากการใช้ Plugin สำเร็จรูป มาเป็นเขียนโค้ดดูด API เอง เพื่อเอาไฟล์ PDF ออกมา!
+                    // 🔥 แปลงวันที่ให้ Google Calendar API รับรู้แบบ 100% ป้องกันงานหาย (RFC3339 format)
                     events: async (info, successCallback, failureCallback) => {
                         const apiKey = 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM';
                         const calId = 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com';
-                        // วิ่งไปเคาะหลังบ้าน Google
-                        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?key=${apiKey}&timeMin=${info.startStr}&timeMax=${info.endStr}&singleEvents=true`;
+                        
+                        // แปลงเวลาเริ่มต้นและสิ้นสุดของปฏิทินให้เป็นแบบเป๊ะๆ ของ Google
+                        const timeMin = info.start.toISOString();
+                        const timeMax = info.end.toISOString();
+                        
+                        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?key=${apiKey}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`;
                         
                         try {
                             const res = await fetch(url);
+                            if (!res.ok) {
+                                console.error("API Error: ไม่สามารถดึงข้อมูลจาก Google ได้ กรุณาตรวจสอบสิทธิ์ Public ของ Calendar");
+                                failureCallback("API Error");
+                                return;
+                            }
                             const data = await res.json();
                             if (data.items) {
                                 const gEvents = data.items.map(item => ({
@@ -461,7 +469,7 @@ class App {
                                     extendedProps: {
                                         isAppTask: false,
                                         description: item.description || 'ไม่มีรายละเอียดระบุไว้',
-                                        attachments: item.attachments || [] // 📂 ดูดไฟล์แนบออกมาตรงนี้!
+                                        attachments: item.attachments || [] 
                                     }
                                 }));
                                 successCallback(gEvents);
@@ -469,6 +477,7 @@ class App {
                                 successCallback([]);
                             }
                         } catch(err) {
+                            console.error("Fetch Error:", err);
                             failureCallback(err);
                         }
                     }
@@ -481,27 +490,24 @@ class App {
             eventClick: (info) => {
                 info.jsEvent.preventDefault(); 
                 
-                // 1️⃣ ถ้าเป็นงานจากในแอปยุทธการ
                 if (info.event.extendedProps.isAppTask) {
                     const allTasks = info.event.extendedProps.allTasks;
                     if (allTasks && allTasks.length > 0) {
                         this.viewMergedTaskDetails(allTasks);
                     }
                 } 
-                // 2️⃣ ถ้าเป็นงานจาก Google Calendar ล้วนๆ
                 else {
                     const title = info.event.title;
                     const startStr = info.event.start ? info.event.start.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : '-';
                     const endStr = info.event.end ? info.event.end.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : startStr;
                     const desc = info.event.extendedProps.description;
-                    const attachments = info.event.extendedProps.attachments; // ดึงไฟล์แนบที่ซ่อนอยู่
+                    const attachments = info.event.extendedProps.attachments; 
                     const url = info.event.url || info.event.extendedProps.url;
 
                     document.getElementById('eventTitle').textContent = title;
                     document.getElementById('eventTime').textContent = `${startStr} - ${endStr}`;
                     document.getElementById('eventDescription').innerHTML = desc;
                     
-                    // 📌 จัดการแสดงปุ่มโหลดไฟล์แนบ Google Drive
                     const attachWrapper = document.getElementById('eventModalAttachmentsWrapper');
                     const attachBox = document.getElementById('eventAttachmentsBox');
                     if (attachWrapper && attachBox) {
@@ -509,7 +515,7 @@ class App {
                         if (attachments && attachments.length > 0) {
                             attachments.forEach(att => {
                                 const btn = document.createElement('a');
-                                btn.href = att.fileUrl; // ลิงก์ไป Google Drive
+                                btn.href = att.fileUrl;
                                 btn.target = '_blank';
                                 btn.className = 'btn btn-secondary';
                                 btn.style = 'display: block; padding: 8px 12px; font-size: 12px; font-weight: 600; text-align: left; margin-bottom: 8px; color: var(--text-primary); text-decoration: none; border: 1px solid var(--glass-border); border-radius: 8px;';
