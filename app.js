@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * เวอร์ชันระเบียบยุทธการ (Force Reset Cache): สั่งล้างหน่วยความจำเอ๋อค้างเก่า, เรียงชั้นยศ, กราฟแท่ง, ผูก Google Calendar สมบูรณ์ 100%
+ * เวอร์ชันกู้คืนระบบคลาวด์: เปิดท่อดึงข้อมูลเก่ากลับมา 100% พร้อมคงกลไกเรียงยศและ Google Calendar
  */
 
 class AttachmentStore {
@@ -57,7 +57,7 @@ class AttachmentStore {
     }
 }
 
-// 👮 รายชื่อกำลังพลสารบรรณยุทธการ
+// 👮 รายชื่อกำลังพลสารบรรณยุทธการเริ่มต้น
 const DEFAULT_STAFF = [
     { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
     { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
@@ -197,17 +197,14 @@ class App {
         this.toastContainer = document.getElementById('toastContainer');
     }
 
-    // 🛠️ กลไกหักดิบล้างสมองเบราว์เซอร์ขจัดเศษซากบั๊กค้างเก่า (Force Cache Clean)
+    // 🛠️ โหมดดึงข้อมูลอัจฉริยะ ป้องกันการ Clear บัญชีรายชื่อทิ้ง
     loadData() {
-        // บังคับล้างค่าเก่าที่เคยพังทิ้งเพื่อสร้างระบบขึ้นมาใหม่ให้สมบูรณ์แบบ
-        localStorage.clear(); 
-
         const storedData = localStorage.getItem('operations_portal_data');
         if (storedData) {
             try {
                 const parsed = JSON.parse(storedData);
-                this.staff = parsed.staff || DEFAULT_STAFF;
-                this.tasks = parsed.tasks || DEFAULT_TASKS;
+                this.staff = parsed.staff && parsed.staff.length > 0 ? parsed.staff : DEFAULT_STAFF;
+                this.tasks = parsed.tasks && parsed.tasks.length > 0 ? parsed.tasks : DEFAULT_TASKS;
             } catch (e) {
                 this.staff = DEFAULT_STAFF;
                 this.tasks = DEFAULT_TASKS;
@@ -222,6 +219,27 @@ class App {
     saveData() {
         const dataToStore = { staff: this.staff, tasks: this.tasks };
         localStorage.setItem('operations_portal_data', JSON.stringify(dataToStore));
+    }
+
+    // 📡 ท่อต่อซิงค์คลาวด์กลางดึงงานและกำลังพลหลักของพี่กลับมาครบถ้วน
+    async syncWithCloudflare() {
+        this.isCloudMode = window.location.protocol.startsWith('http');
+        if (!this.isCloudMode) return;
+        try {
+            const staffRes = await fetch('/api/staff');
+            if (staffRes.ok) {
+                const staffData = await staffRes.json();
+                if (staffData && staffData.length > 0) this.staff = staffData;
+            }
+            const tasksRes = await fetch('/api/tasks');
+            if (tasksRes.ok) {
+                const tasksData = await tasksRes.json();
+                if (tasksData && tasksData.length > 0) this.tasks = tasksData;
+            }
+            this.saveData();
+        } catch (err) {
+            console.error("Cloudflare sync error", err);
+        }
     }
 
     setupEventListeners() {
@@ -331,10 +349,11 @@ class App {
         if (this.statCompletedTasks) this.statCompletedTasks.textContent = this.tasks.filter(t => t.status === 'เสร็จสิ้น').length;
         if (this.statOverdueTasks) this.statOverdueTasks.textContent = 0;
         this.renderCharts();
+        this.teamProgressTableBody = document.querySelector('#teamProgressTable tbody');
         this.renderTeamProgressTable();
     }
 
-    // 📱 แดชบอร์ดตรวจสอบรายบุคคลแบบ Dropdown ล็อกสีคมชัด (เพิ่มระบบเรียงลำดับชั้นยศในตัวเลือก)
+    // 📱 แดชบอร์ดตรวจสอบรายบุคคลแบบ Dropdown ล็อกสีคมชัดไม่กลืนกัน
     renderTeamProgressTable() {
         const progressArea = document.getElementById('teamProgressTable');
         if (!progressArea) return;
@@ -395,7 +414,7 @@ class App {
         });
     }
 
-    // 📊 ระบบประมวลผลกราฟ (เพิ่มระบบจัดเรียงลำดับชั้นยศบนแกน Y ของกราฟแท่ง)
+    // 📊 ระบบประมวลผลกราฟแท่งจัดเรียงยศตามแกน Y
     renderCharts() {
         if (this.statusChartInstance) this.statusChartInstance.destroy();
         if (this.staffChartInstance) this.staffChartInstance.destroy();
@@ -472,7 +491,7 @@ class App {
         `;
     }
 
-    // 🎖️ จัดระเบียบปุ่มสลับบทบาทผู้ใช้ด้านซ้ายบน (เพิ่มระบบเรียงลำดับชั้นยศเสนาธิการ)
+    // 🎖️ ปุ่มสลับบทบาทผู้ใช้ด้านซ้ายบนคัดตามระดับความอาวุโส
     populateRoleSwitcher() {
         if (!this.roleSelector) return;
         this.roleSelector.innerHTML = '';
@@ -508,10 +527,10 @@ class App {
         this.roleSelector.appendChild(groupStaff);
     }
 
-    // 🎖️ จัดระเบียบกล่องรายชื่อเจ้าหน้าที่ในหน้าต่างสร้างภารกิจให้เรียงตามชั้นยศด้วยครับ
     populateAssigneeDropdowns() {
-        if (!this.taskAssigneeInput) return;
-        this.taskAssigneeInput.innerHTML = '';
+        const taskAssigneeInput = document.getElementById('taskAssignee');
+        if (!taskAssigneeInput) return;
+        taskAssigneeInput.innerHTML = '';
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
         workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
         
@@ -519,24 +538,14 @@ class App {
             const opt = document.createElement('option');
             opt.value = member.id;
             opt.textContent = `${member.name} - ${member.role}`;
-            this.taskAssigneeInput.appendChild(opt);
+            taskAssigneeInput.appendChild(opt);
         });
-        
-        if (this.filterAssignee) {
-            this.filterAssignee.innerHTML = '<option value="all">ทั้งหมด</option>';
-            workingStaff.forEach(member => {
-                const opt = document.createElement('option');
-                opt.value = member.id;
-                opt.textContent = member.name;
-                this.filterAssignee.appendChild(opt);
-            });
-        }
     }
 
     renderMasterTaskListTable() {
         if (!this.masterTasksTableBody) return;
         this.masterTasksTableBody.innerHTML = '';
-        this.getFilteredTasks().forEach(task => {
+        this.tasks.forEach(task => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td><strong>${task.name}</strong></td><td>${task.deadline}</td><td>${task.status}</td>`;
             this.masterTasksTableBody.appendChild(tr);
@@ -579,6 +588,7 @@ class App {
     getStatusBadge(st) { return `<span>${st}</span>`; }
     closeTaskModal() { if(this.taskModal) this.taskModal.classList.remove('show'); }
     closeDetailModal() { if(this.taskDetailModal) this.taskDetailModal.classList.remove('show'); }
+    isOverdue() { return false; }
 }
 
 let app;
