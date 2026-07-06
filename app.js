@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * เวอร์ชันแก้จุดพิการ: ซ่อมแซมวงเล็บปิดฟังก์ชันเปิด-ปิดแถบเมนูให้กลับมารันได้ 100%
+ * เวอร์ชันระเบียบยุทธการ: จัดระเบียบเรียงลำดับตามชั้นยศถูกต้อง, กราฟแท่ง, สี Dropdown และ Google Calendar สมบูรณ์
  */
 
 class AttachmentStore {
@@ -61,7 +61,7 @@ class AttachmentStore {
 const DEFAULT_STAFF = [
     { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
     { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
-    { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 3, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' },
+    { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' },
     { id: 'staff-1', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak', rankWeight: 20, lineUserId: '' },
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40, lineUserId: '' }
@@ -220,7 +220,26 @@ class App {
         localStorage.setItem('operations_portal_data', JSON.stringify(dataToStore));
     }
 
-    // 🛠️ ส่วนซ่อมแซมฟังก์ชันหักดิบกลไกตรวจจับปุ่ม (Fixed)
+    async syncWithCloudflare() {
+        this.isCloudMode = window.location.protocol.startsWith('http');
+        if (!this.isCloudMode) return;
+        try {
+            const staffRes = await fetch('/api/staff');
+            if (staffRes.ok) {
+                const staffData = await staffRes.json();
+                if (staffData && staffData.length > 0) this.staff = staffData;
+            }
+            const tasksRes = await fetch('/api/tasks');
+            if (tasksRes.ok) {
+                const tasksData = await tasksRes.json();
+                if (tasksData && tasksData.length > 0) this.tasks = tasksData;
+            }
+            this.saveData();
+        } catch (err) {
+            console.error("Cloudflare sync failed", err);
+        }
+    }
+
     setupEventListeners() {
         if(this.roleSelector) this.roleSelector.addEventListener('change', (e) => this.switchRole(e.target.value));
 
@@ -233,8 +252,6 @@ class App {
         });
 
         if(this.toggleSidebarBtn) this.toggleSidebarBtn.addEventListener('click', () => this.sidebar.classList.add('show'));
-        
-        // 📢 ตรงนี้ซ่อมเรียบร้อยแล้วครับ ตัวหนังสือครบถ้วนไม่ขาดตอน
         if(this.closeSidebarBtn) this.closeSidebarBtn.addEventListener('click', () => this.sidebar.classList.remove('show'));
 
         if(this.themeToggleBtn) {
@@ -324,18 +341,16 @@ class App {
     }
 
     renderLeaderDashboard() {
-        const total = this.tasks.length;
-        if (this.statTotalTasks) this.statTotalTasks.textContent = total;
+        if (this.statTotalTasks) this.statTotalTasks.textContent = this.tasks.length;
         if (this.statInProgressTasks) this.statInProgressTasks.textContent = this.tasks.filter(t => t.status === 'กำลังทำ').length;
         if (this.statReviewTasks) this.statReviewTasks.textContent = this.tasks.filter(t => t.status === 'รอการอนุมัติ').length;
         if (this.statCompletedTasks) this.statCompletedTasks.textContent = this.tasks.filter(t => t.status === 'เสร็จสิ้น').length;
         if (this.statOverdueTasks) this.statOverdueTasks.textContent = 0;
-
         this.renderCharts();
         this.renderTeamProgressTable();
     }
 
-    // 📱 แดชบอร์ดตรวจสอบรายบุคคลแบบ Dropdown ล็อกสีคมชัดไม่กลืนกัน
+    // 📱 แดชบอร์ดตรวจสอบรายบุคคลแบบ Dropdown ล็อกสีคมชัด (เพิ่มระบบเรียงลำดับชั้นยศในตัวเลือก)
     renderTeamProgressTable() {
         const progressArea = document.getElementById('teamProgressTable');
         if (!progressArea) return;
@@ -356,7 +371,10 @@ class App {
 
         const dropdown = document.getElementById('staffSelectDropdown');
         const displayArea = document.getElementById('mobileStaffProgressDisplay');
+        
+        // 🎖️ กรองเอาเฉพาะเจ้าหน้าที่ และเรียงแถวตามลำดับความสูงของชั้นยศ
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
+        workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
 
         dropdown.innerHTML = '<option value="" style="color: #64748b;">-- แตะเลือกรายชื่อเจ้าหน้าที่ --</option>';
         workingStaff.forEach(member => {
@@ -394,7 +412,7 @@ class App {
         });
     }
 
-    // 📊 ระบบแสดงผลกราฟแท่งขวามือ (Staff Bar Chart) ครบถ้วนเสร็จสรรพ
+    // 📊 ระบบประมวลผลกราฟ (เพิ่มระบบจัดเรียงลำดับชั้นยศบนแกน Y ของกราฟแท่ง)
     renderCharts() {
         if (this.statusChartInstance) this.statusChartInstance.destroy();
         if (this.staffChartInstance) this.staffChartInstance.destroy();
@@ -426,7 +444,10 @@ class App {
         const staffNames = [];
         const completedData = [];
         const incompletedData = [];
+        
+        // 🎖️ คัดกรองรายชื่อลูกน้อง และสั่งเรียงลำดับตามชั้นยศก่อนวาดกราฟแท่งขวามือ
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
+        workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
 
         workingStaff.forEach(member => {
             const memberTasks = this.tasks.filter(t => t.assigneeId === member.id);
@@ -451,16 +472,16 @@ class App {
 
     // 📆 ท่อฝังปฏิทินรวม Google Calendar ความปลอดภัยสูง รันได้ทันที
     renderOutlookSharedCalendar() {
-        const calendarViewArea = this.views['team-calendar'];
+        const calendarViewArea = document.getElementById('viewTeamCalendar');
         if (!calendarViewArea) return;
 
         const googleCalendarEmbedUrl = "https://calendar.google.com/calendar/embed?src=c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf%40group.calendar.google.com&ctz=Asia%2FBangkok"; 
 
         calendarViewArea.innerHTML = `
-            <div class="calendar-wrapper glass-card" style="padding:10px; border-radius:12px; height: calc(100vh - 140px); min-height:550px; display:flex; flex-direction:column; background:var(--card-bg); border:1px solid var(--glass-border);">
+            <div class="calendar-wrapper glass-card" style="padding:10px; border-radius:12px; height: calc(100vh - 140px); min-height:550px; display:flex; flex-direction:column; background:var(--card-bg); border:1px solid var(--glass-border); margin: 30px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px;">
                     <div style="font-size:14px; font-weight:600; color:var(--text-primary);"><i class="far fa-calendar-alt text-primary"></i> 📆 แผนปฏิทินยุทธการร่วม ฝยก.พล.ร.4</div>
-                    <a href="https://calendar.google.com" target="_blank" class="btn btn-primary" style="padding:6px 12px; font-size:11px; border-radius:6px;"><i class="fas fa-edit"></i> เพิ่ม/แก้ไขแผนงาน</a>
+                    <a href="https://calendar.google.com" target="_blank" class="btn btn-primary" style="padding:6px 12px; font-size:11px; border-radius:6px; text-decoration:none; color:#fff;"><i class="fas fa-edit"></i> เพิ่ม/แก้ไขแผนงาน</a>
                 </div>
                 <div style="flex-grow:1; width:100%; border-radius:8px; overflow:hidden; background:#fff;">
                     <iframe src="${googleCalendarEmbedUrl}" style="border:0; width:100%; height:100%;" frameborder="0" scrolling="yes"></iframe>
@@ -469,10 +490,73 @@ class App {
         `;
     }
 
+    // 🎖️ จัดระเบียบปุ่มสลับบทบาทผู้ใช้ด้านซ้ายบน (เพิ่มระบบเรียงลำดับชั้นยศเสนาธิการ)
+    populateRoleSwitcher() {
+        if (!this.roleSelector) return;
+        this.roleSelector.innerHTML = '';
+        
+        const groupAdmin = document.createElement('optgroup');
+        groupAdmin.label = '1. ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
+        
+        // กรองระดับเสธและแอดมิน พร้อมจัดเรียงตามน้ำหนักยศ (หัวหน้า -> ผช.หน.ฝยก. -> จ.ส.ท. ชัยสิทธิ์)
+        const adminMembers = this.staff.filter(m => m.id === 'leader' || m.id === 'asst-g3' || m.id === 'dev-chaisith' || m.isStaffAdmin);
+        adminMembers.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
+        
+        adminMembers.forEach(member => {
+            const opt = document.createElement('option');
+            opt.value = member.id;
+            opt.textContent = member.name + (member.id === 'leader' ? ' (Leader)' : (member.id === 'asst-g3' ? ' (Asst. G3)' : ' (DEV)'));
+            opt.selected = (this.currentUser === member.id);
+            groupAdmin.appendChild(opt);
+        });
+        this.roleSelector.appendChild(groupAdmin);
+
+        const groupStaff = document.createElement('optgroup');
+        groupStaff.label = '2. ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
+        
+        // กรองระดับเจ้าหน้าที่ปฏิบัติงาน พร้อมสั่งเรียงแถวตามลำดับชั้นยศที่ถูกต้อง (พ.ต. -> ร.อ. -> ร.ท.)
+        const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith' && !m.isStaffAdmin);
+        generalStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
+        
+        generalStaff.forEach(member => {
+            const opt = document.createElement('option');
+            opt.value = member.id;
+            opt.textContent = member.name;
+            opt.selected = (this.currentUser === member.id);
+            groupStaff.appendChild(opt);
+        });
+        this.roleSelector.appendChild(groupStaff);
+    }
+
+    // 🎖️ จัดระเบียบกล่องรายชื่อเจ้าหน้าที่ในหน้าต่างสร้างภารกิจให้เรียงตามชั้นยศด้วยครับ
+    populateAssigneeDropdowns() {
+        if (!this.taskAssigneeInput) return;
+        this.taskAssigneeInput.innerHTML = '';
+        const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
+        workingStaff.sort((a, b) => this.getRankWeight(a.name) - this.getRankWeight(b.name));
+        
+        workingStaff.forEach(member => {
+            const opt = document.createElement('option');
+            opt.value = member.id;
+            opt.textContent = `${member.name} - ${member.role}`;
+            this.taskAssigneeInput.appendChild(opt);
+        });
+        
+        if (this.filterAssignee) {
+            this.filterAssignee.innerHTML = '<option value="all">ทั้งหมด</option>';
+            workingStaff.forEach(member => {
+                const opt = document.createElement('option');
+                opt.value = member.id;
+                opt.textContent = member.name;
+                this.filterAssignee.appendChild(opt);
+            });
+        }
+    }
+
     renderMasterTaskListTable() {
         if (!this.masterTasksTableBody) return;
         this.masterTasksTableBody.innerHTML = '';
-        this.getFilteredTasks().forEach(task => {
+        this.tasks.forEach(task => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td><strong>${task.name}</strong></td><td>${task.deadline}</td><td>${task.status}</td>`;
             this.masterTasksTableBody.appendChild(tr);
@@ -509,8 +593,7 @@ class App {
         });
     }
 
-    populateRoleSwitcher() {}
-    populateAssigneeDropdowns() {}
+    renderStaffTaskListTable() {}
     getUrgencyBadge(u) { return `<span>${u}</span>`; }
     getSecrecyBadge(s) { return `<span>${s}</span>`; }
     getStatusBadge(st) { return `<span>${st}</span>`; }
