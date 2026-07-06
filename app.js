@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับไร้แชท (No-Chat) + ชื่องานกดดูรายละเอียดได้ + กดสถิติพุ่งไปหน้างานทันที
+ * มีระบบปฏิทิน Custom Calendar ผ่าน API + ยกเลิกระบบแชท 100%
  */
 
 class AttachmentStore {
@@ -56,6 +56,7 @@ class App {
         this.staff = []; this.tasks = []; 
         this.currentUser = 'leader'; this.currentView = 'leader-dashboard'; this.isCloudMode = false; this.tasksViewMode = 'table'; 
         this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
+        this.calendarInstance = null; // ตัวแปรเก็บปฏิทิน Custom
 
         this.initDOMElements(); this.loadData(); this.setupEventListeners(); this.startClock();
         this.attachments = new AttachmentStore();
@@ -184,7 +185,7 @@ class App {
 
         if(this.taskStatusInput) this.taskStatusInput.addEventListener('change', () => { if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid'; });
         if(this.taskPdfInput) { this.taskPdfInput.addEventListener('change', (e) => { const files = e.target.files; if(this.pdfUploadStatus) { if (files.length === 0) this.pdfUploadStatus.textContent = 'ไม่มีไฟล์'; else if (files.length === 1) this.pdfUploadStatus.textContent = `เลือกแล้ว 1 ไฟล์`; else this.pdfUploadStatus.textContent = `เลือกแล้ว ${files.length} ไฟล์`; } }); }
-        window.addEventListener('click', (e) => { if (e.target === this.taskModal) this.closeTaskModal(); if (e.target === this.taskDetailModal) this.closeDetailModal(); });
+        window.addEventListener('click', (e) => { if (e.target === this.taskModal) this.closeTaskModal(); if (e.target === this.taskDetailModal) this.closeDetailModal(); if (e.target === document.getElementById('eventModal')) document.getElementById('eventModal').classList.remove('show'); });
     }
 
     startClock() {
@@ -233,7 +234,6 @@ class App {
         if(member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) this.switchView('leader-dashboard'); else this.switchView('staff-kanban');
     }
 
-    // ✅ กู้คืนระบบเชื่อมโยงหน้าสถิติไปยังหน้ากรองงานแฟ้มสะสม และคัดกรองอัตโนมัติ
     navigateToTasksWithFilter(assigneeId, statusValue) {
         if (this.filterAssignee) this.filterAssignee.value = assigneeId;
         if (this.filterUrgency) this.filterUrgency.value = 'all';
@@ -241,14 +241,12 @@ class App {
         if (this.searchTask) this.searchTask.value = '';
         if (this.filterStatus) this.filterStatus.value = statusValue;
         
-        // ถ้าเป็นหัวหน้า/แอดมิน ให้ไปหน้า แฟ้มภารกิจทั้งหมด (leader-tasks)
         const member = this.staff.find(m => m.id === this.currentUser);
         if (member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) {
             this.switchView('leader-tasks');
             const btnTable = document.getElementById('btnMasterTableMode');
             if(btnTable) btnTable.click(); else this.renderMasterTaskListTable();
         } else {
-            // ถ้าเป็นลูกน้อง ให้ไปหน้า ภารกิจของฉัน (staff-tasks)
             this.switchView('staff-tasks');
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -345,7 +343,6 @@ class App {
             const total = memberTasks.length; const done = memberTasks.filter(t => t.status === 'เสร็จสิ้น').length; const prog = memberTasks.filter(t => t.status === 'กำลังทำ').length; const review = memberTasks.filter(t => t.status === 'รอการอนุมัติ').length; const percentage = total > 0 ? Math.round((done / total) * 100) : 0;
             displayArea.style.display = 'block';
             
-            // ✅ เปลี่ยนกล่องสถิติในแดชบอร์ดให้กลายเป็นปุ่มกดได้ (คลิกแล้ววิ่งไปหน้าตาราง)
             displayArea.innerHTML = `
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;"><img src="${member.avatar}" style="width:45px; height:45px; border-radius:50%;"><div><h4 style="margin:0; font-size:15px; font-weight:700; color:var(--text-primary);">${member.name}</h4><small style="color:var(--text-muted); font-size:12px;">${member.role}</small></div></div>
                 <div style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:5px;"><span>ความคืบหน้าภารกิจรวม</span> <span style="color:var(--primary);">${percentage}%</span></div><div style="height:10px; background:rgba(255,255,255,0.1); border-radius:5px; overflow:hidden;"><div style="width:${percentage}%; height:100%; background:linear-gradient(90deg, var(--primary), #10b981); border-radius:5px;"></div></div></div>
@@ -382,22 +379,66 @@ class App {
         });
     }
 
+    // 📅 ระบบปฏิทิน Custom (FullCalendar.js) แทนที่ Iframe เก่า
     renderOutlookSharedCalendar() {
-        const calendarViewArea = document.getElementById('viewTeamCalendar'); if (!calendarViewArea) return;
-        const googleCalendarEmbedUrl = "https://calendar.google.com/calendar/embed?src=c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf%40group.calendar.google.com&ctz=Asia%2FBangkok"; 
-        calendarViewArea.innerHTML = `
-            <div class="calendar-wrapper glass-card" style="padding:10px; border-radius:12px; height: calc(100vh - 110px); min-height:550px; display:flex; flex-direction:column; background:var(--card-bg); border:1px solid var(--glass-border); width:100%; box-sizing:border-box;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px; flex-wrap: wrap; gap: 8px;">
-                    <div style="font-size:14px; font-weight:600; color:var(--text-primary);"><i class="far fa-calendar-alt text-primary"></i> 📆 แผนปฏิทินยุทธการร่วม</div>
-                    <a href="https://calendar.google.com/calendar/u/0/r" target="_blank" class="btn btn-primary" style="padding:8px 12px; font-size:12px; border-radius:6px; text-decoration:none; color:#fff; flex-grow:1; text-align:center; font-weight:bold;">
-                        <i class="fas fa-external-link-alt"></i> เปิด/แก้ไขแผนงานผ่านแอป
-                    </a>
-                </div>
-                <div style="flex-grow:1; width:100%; border-radius:8px; overflow:hidden; background:#fff;">
-                    <iframe src="${googleCalendarEmbedUrl}" style="border:0; width:100%; height:100%;" frameborder="0" scrolling="yes"></iframe>
-                </div>
-            </div>
-        `;
+        const calendarContainer = document.getElementById('fullCalendarContainer'); 
+        if (!calendarContainer) return;
+        
+        // ล้างปฏิทินเก่าออก (ถ้ามี)
+        if (this.calendarInstance) {
+            this.calendarInstance.destroy();
+            this.calendarInstance = null;
+        }
+        
+        calendarContainer.innerHTML = ''; // เคลียร์พื้นที่
+
+        // เรียกใช้งาน FullCalendar พร้อมระบบ Google Calendar API
+        this.calendarInstance = new FullCalendar.Calendar(calendarContainer, {
+            headerToolbar: {
+                left: 'prev,next',
+                center: 'title',
+                right: 'today,dayGridMonth,listMonth'
+            },
+            initialView: 'dayGridMonth',
+            locale: 'th', // ใช้ภาษาไทย
+            height: '100%',
+            
+            // 🔑 กุญแจ API Key และ Calendar ID ที่ขอมาจาก Google
+            googleCalendarApiKey: 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM',
+            events: 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com',
+            
+            // 📱 เวลากดที่งานในปฏิทิน ให้โชว์ Modal ของแอปแทน (ป้องกันการเด้งไปเว็บ Google Calendar)
+            eventClick: function(info) {
+                info.jsEvent.preventDefault(); // สกัดกั้นไม่ให้มือถือเด้งไปหน้าเว็บอื่น
+                
+                // ดึงข้อมูลกิจกรรม
+                const title = info.event.title;
+                const startStr = info.event.start ? info.event.start.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : '-';
+                const endStr = info.event.end ? info.event.end.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : startStr;
+                const desc = info.event.extendedProps.description || 'ไม่มีรายละเอียดระบุไว้';
+                const url = info.event.url;
+
+                // ใส่ข้อมูลลงใน Modal
+                document.getElementById('eventTitle').textContent = title;
+                document.getElementById('eventTime').textContent = `${startStr} - ${endStr}`;
+                document.getElementById('eventDescription').innerHTML = desc;
+                
+                // ปุ่มสำหรับเปิดลิงก์แก้ไข
+                const btnLink = document.getElementById('eventLinkBtn');
+                if (url) {
+                    btnLink.href = url;
+                    btnLink.style.display = 'inline-block';
+                } else {
+                    btnLink.style.display = 'none';
+                }
+
+                // เปิด Modal โชว์
+                document.getElementById('eventModal').classList.add('show');
+            }
+        });
+
+        // แสดงผลปฏิทิน
+        this.calendarInstance.render();
     }
 
     renderMasterTaskListTable() {
@@ -410,7 +451,6 @@ class App {
             let deadlineClass = ''; let overdueBadgeText = '';
             if (this.isOverdue(task)) { deadlineClass = 'deadline-danger'; overdueBadgeText = ' <span class="badge-overdue status-badge">เลยกำหนด</span>'; } else if (this.isDueSoon(task)) { deadlineClass = 'deadline-warning'; overdueBadgeText = ' <span class="badge-progress status-badge">ส่งใน 24 ชม.</span>'; }
             
-            // ✅ ทำให้ชื่องานคลิกได้เลย เพื่อเปิดดูรายละเอียด
             tr.innerHTML = `
                 <td>
                     <strong style="cursor: pointer; color: var(--primary); text-decoration: underline;" onclick="app.viewTaskDetails('${task.id}')" title="คลิกเพื่อดูรายละเอียดและเอกสารแนบ">
@@ -532,7 +572,7 @@ class App {
             const oldStatus = task.status; task.status = newStatus;
             if (!task.history) task.history = [];
             task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
-            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"ผ่านกระดาน Kanban`);
+            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}" (ลากวางผ่าน Kanban)`);
             this.saveData(); this.renderStaffKanban();
             if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
             this.showToast(`ย้ายภารกิจไปยัง "${newStatus}" เรียบร้อย`);
@@ -554,7 +594,6 @@ class App {
             if (this.isOverdue(task)) { deadlineClass = 'deadline-danger'; overdueText = ' <span class="badge-overdue status-badge">เลยกำหนด</span>'; }
             else if (this.isDueSoon(task)) { deadlineClass = 'deadline-warning'; overdueText = ' <span class="badge-progress status-badge">ด่วน (24ชม)</span>'; }
             
-            // ✅ ทำให้ชื่องานคลิกได้เลย เพื่อเปิดดูรายละเอียด
             tr.innerHTML = `
                 <td>
                     <strong style="cursor: pointer; color: var(--primary); text-decoration: underline;" onclick="app.viewTaskDetails('${task.id}')" title="คลิกเพื่อดูรายละเอียดและเอกสารแนบ">
