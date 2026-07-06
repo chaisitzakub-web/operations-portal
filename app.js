@@ -93,10 +93,16 @@ class App {
         this.attachments.init().then(async () => {
             await this.syncWithCloudflare();
             this.render();
-            if (this.isCloudMode) setInterval(() => { this.syncChatOnly(); }, 2000);
+            if (this.isCloudMode) {
+                setInterval(() => { this.syncChatOnly(); }, 2000);
+            }
         }).catch(async err => {
+            console.error("IndexedDB initialization failed", err);
             await this.syncWithCloudflare();
             this.render();
+            if (this.isCloudMode) {
+                setInterval(() => { this.syncChatOnly(); }, 2000);
+            }
         });
     }
 
@@ -217,6 +223,7 @@ class App {
                 this.tasks = parsed.tasks ? parsed.tasks : DEFAULT_TASKS;
                 this.messages = parsed.messages || []; 
             } catch (e) {
+                console.error("Error parsing stored data", e);
                 this.staff = DEFAULT_STAFF;
                 this.tasks = DEFAULT_TASKS;
                 this.messages = [];
@@ -254,7 +261,9 @@ class App {
                 if (chatData && chatData.length !== this.messages.length) this.messages = chatData;
             }
             this.saveData();
-        } catch (err) {}
+        } catch (err) {
+            console.error("Cloudflare sync failed", err);
+        }
     }
 
     async syncChatOnly() {
@@ -267,6 +276,13 @@ class App {
                     this.messages = chatData;
                     this.saveData();
                     this.renderChatMessages();
+                    
+                    if (this.chatOpen) {
+                        this.scrollToBottomChat();
+                    } else if (this.chatUnreadBadge) {
+                        this.chatUnreadBadge.classList.remove('d-none');
+                        this.chatUnreadBadge.textContent = '!';
+                    }
                 }
             }
         } catch (err) {}
@@ -311,11 +327,38 @@ class App {
             column.addEventListener('drop', (e) => this.handleDrop(e, column));
         });
 
+        const btnTable = document.getElementById('btnMasterTableMode');
+        const btnGantt = document.getElementById('btnMasterGanttMode');
+        if (btnTable && btnGantt) {
+            btnTable.addEventListener('click', () => {
+                this.tasksViewMode = 'table';
+                btnTable.className = 'btn btn-primary';
+                btnGantt.className = 'btn btn-secondary';
+                document.getElementById('masterTableArea').classList.remove('d-none');
+                document.getElementById('masterGanttArea').classList.add('d-none');
+                this.renderMasterTaskListTable();
+            });
+            btnGantt.addEventListener('click', () => {
+                this.tasksViewMode = 'gantt';
+                btnTable.className = 'btn btn-secondary';
+                btnGantt.className = 'btn btn-primary';
+                document.getElementById('masterTableArea').classList.add('d-none');
+                document.getElementById('masterGanttArea').classList.remove('d-none');
+                this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+            });
+        }
+
         const filters = [this.filterAssignee, this.filterUrgency, this.filterSecrecy, this.filterStatus];
         filters.forEach(filter => { 
-            if(filter) filter.addEventListener('change', () => this.renderMasterTaskListTable());
+            if(filter) filter.addEventListener('change', () => {
+                if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+                else this.renderMasterTaskListTable();
+            }); 
         });
-        if(this.searchTask) this.searchTask.addEventListener('input', () => this.renderMasterTaskListTable());
+        if(this.searchTask) this.searchTask.addEventListener('input', () => {
+            if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+            else this.renderMasterTaskListTable();
+        });
 
         if(this.taskStatusInput) this.taskStatusInput.addEventListener('change', () => { if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid'; });
         if(this.taskPdfInput) {
@@ -413,7 +456,10 @@ class App {
         if (this.pageTitle) this.pageTitle.innerHTML = thaiTitle;
 
         if (viewName === 'leader-dashboard') this.renderLeaderDashboard();
-        else if (viewName === 'leader-tasks') this.renderMasterTaskListTable();
+        else if (viewName === 'leader-tasks') {
+            if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks());
+            else this.renderMasterTaskListTable();
+        }
         else if (viewName === 'leader-team') this.renderTeamMembers();
         else if (viewName === 'staff-kanban') this.renderStaffKanban();
         else if (viewName === 'staff-tasks') this.renderStaffTaskListTable();
@@ -425,7 +471,7 @@ class App {
         const member = this.staff.find(m => m.id === roleVal);
         if (member) {
             if (this.currentUserName) this.currentUserName.textContent = member.name;
-            if (this.currentUserRoleText) this.currentUserRoleText.textContent = member.role;
+            if (this.currentUserRoleText) this.currentUserRoleText.textContent = member.role.split(' (')[0];
             if (this.currentUserAvatar) this.currentUserAvatar.src = member.avatar;
             
             if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith' || member.isStaffAdmin) {
@@ -441,6 +487,7 @@ class App {
             }
         }
         this.renderChatMessages(); 
+        this.showToast(`เปลี่ยนบทบาทเป็น: ${this.currentUserName.textContent}`, 'info');
     }
 
     render() {
@@ -517,7 +564,6 @@ class App {
         if(this.chatMessages) this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
-    // 🏆 ฟังก์ชันอ่านค่าน้ำหนักชั้นยศที่เผลอลบไป (กู้คืนมาแล้ว!)
     getRankWeight(name) {
         if (!name) return 500;
         if (name.startsWith('พ.ท.')) return 10;
@@ -534,7 +580,6 @@ class App {
         return 500; 
     }
 
-    // 🔍 ฟังก์ชันดึงและกรองงาน (กู้คืนมาแล้ว!)
     getFilteredTasks() {
         const fAssignee = this.filterAssignee ? this.filterAssignee.value : 'all';
         const fUrgency = this.filterUrgency ? this.filterUrgency.value : 'all';
@@ -725,6 +770,7 @@ class App {
 
         const isLightTheme = document.body.classList.contains('light-theme');
         const textColor = isLightTheme ? '#4b5563' : '#9ca3af';
+        const gridColor = isLightTheme ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
 
         this.statusChartInstance = new Chart(statusChartCanvas, {
             type: 'doughnut',
@@ -755,7 +801,7 @@ class App {
         workingStaff.forEach(member => {
             const memberTasks = this.tasks.filter(t => t.assigneeId === member.id);
             const comp = memberTasks.filter(t => t.status === 'เสร็จสิ้น').length;
-            staffNames.push(member.name.split(' ').slice(0,2).join(' ')); 
+            staffNames.push(member.name.split(' ').slice(0, 2).join(' ')); 
             completedData.push(comp);
             incompletedData.push(memberTasks.length - comp);
         });
@@ -765,11 +811,18 @@ class App {
             data: {
                 labels: staffNames,
                 datasets: [
-                    { label: 'เสร็จสิ้น', data: completedData, backgroundColor: '#10b981' },
-                    { label: 'งานคงค้าง', data: incompletedData, backgroundColor: '#3b82f6' }
+                    { label: 'เสร็จสิ้น (Done)', data: completedData, backgroundColor: '#10b981', borderRadius: 4 },
+                    { label: 'กำลังปฏิบัติ/รออนุมัติ/รอดำเนินการ', data: incompletedData, backgroundColor: '#3b82f6', borderRadius: 4 }
                 ]
             },
-            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { position: 'bottom', labels: { color: textColor, font: { family: 'Prompt', size: 11 } } } }, scales: { x: { stacked: true, ticks: { color: textColor } }, y: { stacked: true, ticks: { color: textColor } } } }
+            options: { 
+                responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                scales: {
+                    x: { stacked: true, grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'Prompt' } } },
+                    y: { stacked: true, grid: { display: false }, ticks: { color: textColor, font: { family: 'Prompt' } } }
+                },
+                plugins: { legend: { position: 'bottom', labels: { color: textColor, font: { family: 'Prompt', size: 11 } } } }
+            }
         });
     }
 
@@ -783,7 +836,7 @@ class App {
             <div class="calendar-wrapper glass-card" style="padding:10px; border-radius:12px; height: calc(100vh - 140px); min-height:550px; display:flex; flex-direction:column; background:var(--card-bg); border:1px solid var(--glass-border); margin: 30px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px;">
                     <div style="font-size:14px; font-weight:600; color:var(--text-primary);"><i class="far fa-calendar-alt text-primary"></i> 📆 แผนปฏิทินยุทธการร่วม ฝยก.พล.ร.4</div>
-                    <a href="https://calendar.google.com" target="_blank" class="btn btn-primary" style="padding:6px 12px; font-size:11px; border-radius:6px; text-decoration:none; color:#fff;"><i class="fas fa-edit"></i> เปิด/แก้ไขแผนงาน</a>
+                    <a href="https://calendar.google.com" target="_blank" class="btn btn-primary" style="padding:6px 12px; font-size:11px; border-radius:6px; text-decoration:none; color:#fff;"><i class="fas fa-edit"></i> เข้าหน้าหลักเพื่อเพิ่ม/แก้ไขแผนงาน</a>
                 </div>
                 <div style="flex-grow:1; width:100%; border-radius:8px; overflow:hidden; background:#fff;">
                     <iframe src="${googleCalendarEmbedUrl}" style="border:0; width:100%; height:100%;" frameborder="0" scrolling="yes"></iframe>
@@ -798,7 +851,7 @@ class App {
         const filteredTasks = this.getFilteredTasks();
 
         if (filteredTasks.length === 0) {
-            this.masterTasksTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">ไม่พบข้อมูลภารกิจ</td></tr>`;
+            this.masterTasksTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;"><i class="fas fa-box-open" style="font-size: 30px; margin-bottom: 10px; display: block;"></i>ไม่พบข้อมูลยุทธการที่ต้องการค้นหา</td></tr>`;
             return;
         }
 
@@ -806,16 +859,17 @@ class App {
             const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=none' };
             const tr = document.createElement('tr');
             
-            let deadlineClass = ''; let overdueBadgeText = '';
+            let deadlineClass = '';
+            let overdueBadgeText = '';
             if (this.isOverdue(task)) { deadlineClass = 'deadline-danger'; overdueBadgeText = ' <span class="badge-overdue status-badge">เลยกำหนดส่ง</span>'; }
             else if (this.isDueSoon(task)) { deadlineClass = 'deadline-warning'; overdueBadgeText = ' <span class="badge-progress status-badge">ส่งใน 24 ชม.</span>'; }
 
             tr.innerHTML = `
                 <td>
-                    <strong>${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger" title="มีไฟล์แนบ"></i>' : ''}</strong>
-                    <div style="font-size: 11px; color: var(--text-muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description || ''}</div>
+                    <strong>${task.name} ${task.hasAttachment ? '<i class="fas fa-file-pdf text-danger" title="มีไฟล์เอกสารแนบ" style="margin-left: 5px;"></i>' : ''}</strong>
+                    <div style="font-size: 11px; color: var(--text-muted); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px;">${task.description || ''}</div>
                 </td>
-                <td><div class="table-user"><img src="${member.avatar}" class="avatar-xs"><span class="table-user-name">${member.name}</span></div></td>
+                <td><div class="table-user"><img src="${member.avatar}" alt="Avatar" class="avatar-xs"><span class="table-user-name">${member.name}</span></div></td>
                 <td>${this.getUrgencyBadge(task.urgency)}</td>
                 <td>${this.getSecrecyBadge(task.secrecy)}</td>
                 <td>${task.receiveDate || task.startDate}</td>
@@ -833,6 +887,88 @@ class App {
         });
     }
 
+    renderGanttChart(containerId, filteredTasks) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        if (filteredTasks.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-muted);"><i class="fas fa-box-open" style="font-size:30px; margin-bottom:10px; display:block;"></i>ไม่พบข้อมูลยุทธการที่ต้องการแสดงไทม์ไลน์</div>`;
+            return;
+        }
+
+        const parseDate = (str) => {
+            if(!str) return new Date();
+            const parts = str.split('-');
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        };
+
+        let minDate = null;
+        let maxDate = null;
+        filteredTasks.forEach(t => {
+            const dStart = parseDate(t.startDate);
+            const dEnd = parseDate(t.deadline);
+            if (!minDate || dStart < minDate) minDate = dStart;
+            if (!maxDate || dEnd > maxDate) maxDate = dEnd;
+        });
+
+        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+        const dates = [];
+        for (let i = 0; i < totalDays; i++) {
+            const d = new Date(minDate);
+            d.setDate(d.getDate() + i);
+            dates.push(d);
+        }
+
+        let html = `<div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; overflow-x: auto;">`;
+
+        html += `<div style="display: flex; align-items: center; background: rgba(148,163,184,0.06); border-bottom: 1px solid var(--glass-border); font-weight: 600; padding: 8px 0; border-radius: 6px 6px 0 0;">`;
+        html += `<div style="width: 220px; min-width: 220px; padding-left: 12px; color: var(--text-muted); font-size: 12px;">ภารกิจ / ผู้รับผิดชอบ</div>`;
+        html += `<div style="display: flex; flex-grow: 1; position: relative;">`;
+        dates.forEach(d => {
+            html += `<div style="width: 50px; min-width: 50px; text-align: center; font-size: 11px; color: var(--text-muted); border-left: 1px solid var(--glass-border);">
+                <div>${d.getDate()}</div>
+                <div style="font-size: 8.5px; opacity: 0.6; font-weight: 500;">${d.toLocaleString('th-TH', { month: 'short' })}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+
+        filteredTasks.forEach(task => {
+            const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ' };
+            const dStart = parseDate(task.startDate);
+            const dEnd = parseDate(task.deadline);
+            
+            const startIndex = Math.round((dStart - minDate) / (1000 * 60 * 60 * 24));
+            const duration = Math.round((dEnd - dStart) / (1000 * 60 * 60 * 24)) + 1;
+            
+            let barColor = 'var(--color-todo)';
+            if (task.status === 'กำลังทำ') barColor = 'var(--color-progress)';
+            if (task.status === 'รอการอนุมัติ') barColor = 'var(--color-review)';
+            if (task.status === 'เสร็จสิ้น') barColor = 'var(--color-done)';
+            if (this.isOverdue(task)) barColor = 'var(--color-overdue)';
+
+            html += `<div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--glass-border); transition: background 0.2s;" onmouseover="this.style.background='rgba(148,163,184,0.03)'" onmouseout="this.style.background='transparent'">`;
+            
+            html += `<div style="width: 220px; min-width: 220px; padding-left: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;" onclick="app.viewTaskDetails('${task.id}')">
+                <div style="font-weight: 600; color: var(--text-primary); font-size: 13px;">${task.name}</div>
+                <small style="color: var(--text-muted); font-size: 10.5px;"><i class="far fa-user"></i> ${member.name.split(' ')[0]} ${member.name.split(' ')[1] || ''}</small>
+            </div>`;
+            
+            html += `<div style="display: flex; flex-grow: 1; position: relative; height: 32px; background-image: linear-gradient(to right, rgba(148,163,184,0.04) 1px, transparent 1px); background-size: 50px 100%;">`;
+            
+            const leftPos = startIndex * 50;
+            const widthPos = duration * 50;
+            
+            html += `<div style="position: absolute; left: ${leftPos}px; width: ${widthPos}px; height: 24px; top: 4px; background: ${barColor}; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10.5px; font-weight: 700; padding: 0 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.25); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);" title="${task.name} (${task.startDate} ถึง ${task.deadline})" onclick="app.viewTaskDetails('${task.id}')">
+                ${duration >= 2 ? task.status : '•'}
+            </div>`;
+            
+            html += `</div></div>`;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
     renderTeamMembers() {
         if (!this.teamGridCards) return;
         this.teamGridCards.innerHTML = '';
@@ -848,10 +984,10 @@ class App {
             card.className = 'team-member-card glass-card';
             card.innerHTML = `
                 <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 8px;">
-                    <button onclick="app.editMember('${member.id}')" style="background: transparent; border: none; color: #3b82f6; cursor: pointer; font-size: 14px;"><i class="fas fa-user-pen"></i></button>
-                    <button class="btn-remove-member" onclick="app.removeMember('${member.id}')" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px;"><i class="fas fa-user-minus"></i></button>
+                    <button onclick="app.editMember('${member.id}')" title="แก้ไขข้อมูลเจ้าหน้าที่" style="background: transparent; border: none; color: #3b82f6; cursor: pointer; font-size: 16px;"><i class="fas fa-user-pen"></i></button>
+                    <button class="btn-remove-member" onclick="app.removeMember('${member.id}')" title="ลบกำลังพลออกจากระบบ" style="position: static; margin: 0; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px;"><i class="fas fa-user-minus"></i></button>
                 </div>
-                <div class="member-avatar-box" style="margin-top: 15px;"><img src="${member.avatar}" class="avatar-lg"></div>
+                <div class="member-avatar-box" style="margin-top: 15px;"><img src="${member.avatar}" alt="Avatar" class="avatar-lg"></div>
                 <div class="member-name">${member.name}</div>
                 <div class="member-role">${member.role}</div>
                 <div class="member-task-stats">
@@ -908,7 +1044,7 @@ class App {
     populateKanbanColumn(container, taskList) {
         container.innerHTML = '';
         if (taskList.length === 0) {
-            container.innerHTML = `<div class="empty-column-placeholder" style="border: 2px dashed rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 25px; text-align: center; font-size: 12px; color: var(--text-muted); pointer-events: none;">ไม่มีภารกิจ</div>`;
+            container.innerHTML = `<div class="empty-column-placeholder" style="border: 2px dashed rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 25px; text-align: center; font-size: 12px; color: var(--text-muted); pointer-events: none;">ไม่มีภารกิจในคอลัมน์นี้</div>`;
             return;
         }
 
@@ -955,7 +1091,7 @@ class App {
             const oldStatus = task.status; task.status = newStatus;
             if (!task.history) task.history = [];
             task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
-            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"`);
+            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"ผ่านกระดาน Kanban`);
             this.saveData(); this.renderStaffKanban();
             if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
             this.showToast(`ย้ายภารกิจไปยัง "${newStatus}" เรียบร้อย`);
@@ -985,6 +1121,7 @@ class App {
                     <div style="display: flex; gap: 8px;">
                         <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 11px;" onclick="app.viewTaskDetails('${task.id}')" title="ดูรายละเอียด"><i class="fas fa-eye"></i></button>
                         <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 11px; color: var(--primary);" onclick="app.openEditTaskModal('${task.id}')" title="แก้ไขงาน"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 11px; color: var(--color-overdue);" onclick="app.deleteTask('${task.id}')" title="ลบงาน"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             `;
@@ -1085,7 +1222,7 @@ class App {
                     }
                     taskObj.hasAttachment = true; taskObj.attachmentName = JSON.stringify(fileNamesArray); 
                     if (!taskObj.history) taskObj.history = []; taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสาร ${files.length} ฉบับ`, user: logUser }); 
-                    lineAlertMessage += ` (แนบเอกสาร ${files.length} ฉบับ)`;
+                    lineAlertMessage += ` (และแนบเอกสาร ${files.length} ฉบับ)`;
                 } catch (err) { this.showToast('อัปโหลดไฟล์ไปคลาวด์ล้มเหลว', 'danger'); }
             } else {
                 try { 
