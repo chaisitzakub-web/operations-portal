@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับสมบูรณ์ 100%: กู้คืนระบบจัดการงานทั้งหมด (CRUD), Drag & Drop, และสถิติ กลับมาครบถ้วน
+ * ฉบับสมบูรณ์ (พร้อมระบบตาข่ายนิรภัย): ป้องกันบัญชีหัวหน้าและแอดมินสูญหาย กู้คืนรูป Avatar 100%
  */
 
 class AttachmentStore {
@@ -16,26 +16,23 @@ class AttachmentStore {
     saveAttachment(taskId, files) {
         return new Promise((resolve, reject) => {
             if (!this.db) { reject("Database not initialized"); return; }
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
+            const transaction = this.db.transaction([this.storeName], 'readwrite'); const store = transaction.objectStore(this.storeName);
             const filesArray = Array.from(files).map(f => ({ fileName: f.name, fileType: f.type, fileData: f }));
-            const record = { taskId: taskId, isMultiple: true, files: filesArray };
-            const request = store.put(record); request.onsuccess = () => resolve(); request.onerror = (e) => reject(e);
+            const request = store.put({ taskId: taskId, isMultiple: true, files: filesArray });
+            request.onsuccess = () => resolve(); request.onerror = (e) => reject(e);
         });
     }
     getAttachment(taskId) {
         return new Promise((resolve, reject) => {
             if (!this.db) { reject("Database not initialized"); return; }
-            const transaction = this.db.transaction([this.storeName], 'readonly');
-            const store = transaction.objectStore(this.storeName);
+            const transaction = this.db.transaction([this.storeName], 'readonly'); const store = transaction.objectStore(this.storeName);
             const request = store.get(taskId); request.onsuccess = (e) => resolve(e.target.result); request.onerror = (e) => reject(e);
         });
     }
     deleteAttachment(taskId) {
         return new Promise((resolve, reject) => {
             if (!this.db) { reject("Database not initialized"); return; }
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
+            const transaction = this.db.transaction([this.storeName], 'readwrite'); const store = transaction.objectStore(this.storeName);
             const request = store.delete(taskId); request.onsuccess = () => resolve(); request.onerror = (e) => reject(e);
         });
     }
@@ -49,13 +46,7 @@ const DEFAULT_STAFF = [
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40, lineUserId: '' }
 ];
-
-const DEFAULT_TASKS = [
-    { id: 'task-101', name: 'เตรียมข้อมูลบรรยายสรุป เสธ.ทภ.3', description: 'เตรียมสไลด์ Powerpoint ยุทธการ และสถิติกำลังพล', assigneeId: 'dev-chaisith', status: 'กำลังทำ', urgency: 'ด่วนที่สุด', secrecy: 'ลับมาก', startDate: '2026-07-01', deadline: '2026-07-10', history: [] },
-    { id: 'task-102', name: 'วางแผนการฝึกร่วมผสม ตปท.', description: 'ร่างกรอบเอกสารความร่วมมือทางทหารและการฝึกร่วม', assigneeId: 'staff-1', status: 'รอการอนุมัติ', urgency: 'ด่วน', secrecy: 'ลับที่สุด', startDate: '2026-07-02', deadline: '2026-07-12', history: [] },
-    { id: 'task-103', name: 'ตรวจความพร้อมรบ กองพันเคลื่อนที่เร็ว', description: 'ลงพื้นที่ตรวจเอกสารสารบรรณยุทธการประจำหน่วย', assigneeId: 'staff-2', status: 'เสร็จสิ้น', urgency: 'ปกติ', secrecy: 'ปกติ', startDate: '2026-07-03', deadline: '2026-07-05', history: [] },
-    { id: 'task-104', name: 'สรุปรายงานข่าวกรองภัยคุกคามชายแดน', description: 'วิเคราะห์สถานการณ์ความมั่นคงและแนวโน้มสถานการณ์', assigneeId: 'staff-2', status: 'รอดำเนินการ', urgency: 'ด่วนที่สุด', secrecy: 'ลับมาก', startDate: '2026-07-04', deadline: '2026-07-08', history: [] }
-];
+const DEFAULT_TASKS = [];
 
 class App {
     constructor() {
@@ -131,17 +122,26 @@ class App {
         this.chatToggleIcon = document.getElementById('chatToggleIcon'); this.chatUnreadBadge = document.getElementById('chatUnreadBadge');
     }
 
+    // 🛡️ ระบบตาข่ายนิรภัย: บังคับสร้างบัญชีหัวหน้าและแอดมินกลับคืนมาเสมอถ้าระบบหาไม่เจอ
+    ensureAdminStaff() {
+        if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
+        if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
+        if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
+    }
+
     loadData() {
-        if (!localStorage.getItem('operations_portal_reset_v2')) { localStorage.clear(); localStorage.setItem('operations_portal_reset_v2', 'true'); }
         const storedData = localStorage.getItem('operations_portal_data');
         if (storedData) {
             try {
                 const parsed = JSON.parse(storedData);
                 this.staff = parsed.staff && parsed.staff.length > 0 ? parsed.staff : DEFAULT_STAFF;
-                this.tasks = parsed.tasks && parsed.tasks.length > 0 ? parsed.tasks : DEFAULT_TASKS;
+                this.tasks = parsed.tasks ? parsed.tasks : DEFAULT_TASKS;
                 this.messages = parsed.messages || []; 
             } catch (e) { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; }
-        } else { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; this.saveData(); }
+        } else { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; }
+        
+        this.ensureAdminStaff(); // เรียกใช้ตาข่ายนิรภัยทันที!
+        this.saveData();
     }
 
     saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks, messages: this.messages })); }
@@ -152,6 +152,7 @@ class App {
             const staffRes = await fetch('/api/staff'); if (staffRes.ok) { const data = await staffRes.json(); if (data && data.length > 0) this.staff = data; }
             const tasksRes = await fetch('/api/tasks'); if (tasksRes.ok) { const data = await tasksRes.json(); if (data && data.length > 0) this.tasks = data; }
             const chatRes = await fetch('/api/chat'); if (chatRes.ok) { const data = await chatRes.json(); if (data && data.length !== this.messages.length) this.messages = data; }
+            this.ensureAdminStaff(); // เรียกใช้ตาข่ายนิรภัยหลังซิงค์คลาวด์!
             this.saveData();
         } catch (err) {}
     }
@@ -177,7 +178,6 @@ class App {
         if(this.closeSidebarBtn) this.closeSidebarBtn.addEventListener('click', () => this.sidebar.classList.remove('show'));
         if(this.themeToggleBtn) { this.themeToggleBtn.addEventListener('click', () => { document.body.classList.toggle('light-theme'); const isLight = document.body.classList.contains('light-theme'); const icon = this.themeToggleBtn.querySelector('i'); if (icon) icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon'; this.renderCharts(); }); }
 
-        // ✅ ปุ่มเปิดหน้าต่างที่รอบที่แล้วหายไป
         if(this.btnCreateTask) this.btnCreateTask.addEventListener('click', () => this.openCreateTaskModal());
         if(this.btnCancelTaskModal) this.btnCancelTaskModal.addEventListener('click', () => this.closeTaskModal());
         if(this.taskModalCloseBtn) this.taskModalCloseBtn.addEventListener('click', () => this.closeTaskModal());
@@ -185,7 +185,6 @@ class App {
         if(this.taskForm) this.taskForm.addEventListener('submit', (e) => { e.preventDefault(); this.submitTaskForm(); });
         if(this.addMemberForm) this.addMemberForm.addEventListener('submit', (e) => { e.preventDefault(); this.addNewMember(); });
 
-        // ✅ กู้คืนระบบ Drag & Drop ลากการ์ดงาน
         const columns = document.querySelectorAll('.kanban-column');
         columns.forEach(column => {
             column.addEventListener('dragover', (e) => this.handleDragOver(e));
@@ -194,7 +193,6 @@ class App {
             column.addEventListener('drop', (e) => this.handleDrop(e, column));
         });
 
-        // ✅ กู้คืนปุ่มสลับตาราง/Gantt Chart
         const btnTable = document.getElementById('btnMasterTableMode'); const btnGantt = document.getElementById('btnMasterGanttMode');
         if (btnTable && btnGantt) {
             btnTable.addEventListener('click', () => { this.tasksViewMode = 'table'; btnTable.className = 'btn btn-primary'; btnGantt.className = 'btn btn-secondary'; document.getElementById('masterTableArea').classList.remove('d-none'); document.getElementById('masterGanttArea').classList.add('d-none'); this.renderMasterTaskListTable(); });
@@ -301,7 +299,6 @@ class App {
         if (name.startsWith('ส.อ.')) return 90; if (name.startsWith('ส.ท.')) return 100; if (name.startsWith('ส.ต.')) return 110; return 500; 
     }
 
-    // ✅ ฟังก์ชันคัดกรองงานที่หายไป ได้รับการกู้คืน
     getFilteredTasks() {
         const fAssignee = this.filterAssignee ? this.filterAssignee.value : 'all'; const fUrgency = this.filterUrgency ? this.filterUrgency.value : 'all';
         const fSecrecy = this.filterSecrecy ? this.filterSecrecy.value : 'all'; const fStatus = this.filterStatus ? this.filterStatus.value : 'all';
@@ -417,7 +414,6 @@ class App {
         `;
     }
 
-    // ✅ กู้คืนระบบวาดตารางและ Gantt Chart ที่หายไป
     renderMasterTaskListTable() {
         if (!this.masterTasksTableBody) return; this.masterTasksTableBody.innerHTML = '';
         const filteredTasks = this.getFilteredTasks();
@@ -549,7 +545,6 @@ class App {
         });
     }
 
-    // ✅ กู้คืนระบบสร้างภารกิจแก้ไขลบ และดูรายละเอียด
     openCreateTaskModal() {
         if (!this.taskModal) return; this.taskForm.reset(); this.taskModalTitle.innerHTML = '<i class="fas fa-circle-plus"></i> มอบหมายภารกิจยุทธการใหม่'; this.taskIdField.value = '';
         const today = new Date().toISOString().split('T')[0]; this.taskReceiveDateInput.value = today; this.taskStartDateInput.value = today; this.taskDeadlineInput.value = today;
@@ -676,7 +671,6 @@ class App {
         this.switchView(this.currentView); this.showToast(`บันทึกสถานะ: ${newStatus}`);
     }
 
-    // ✅ กู้คืนระบบเพิ่ม ลบ แก้ไข กำลังพล
     addNewMember() {
         const name = this.memberNameInput.value.trim(); const role = this.memberRoleInput.value.trim(); const avatar = this.selectedAvatarInput.value; if (!name || !role) return; let memberData;
         if (this.editingStaffId) { const index = this.staff.findIndex(m => m.id === this.editingStaffId); if (index !== -1) { this.staff[index].name = name; this.staff[index].role = role; this.staff[index].avatar = avatar; memberData = this.staff[index]; } } 
