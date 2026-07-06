@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * มีระบบปฏิทิน Custom Calendar ผ่าน API + ยกเลิกระบบแชท 100%
+ * ฉบับผสานร่างงานห้วงเดียวกันอัตโนมัติ (Auto-Merge Calendar Events) + ดึง PDF ครบทุกภารกิจย่อย 100%
  */
 
 class AttachmentStore {
@@ -56,7 +56,7 @@ class App {
         this.staff = []; this.tasks = []; 
         this.currentUser = 'leader'; this.currentView = 'leader-dashboard'; this.isCloudMode = false; this.tasksViewMode = 'table'; 
         this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
-        this.calendarInstance = null; // ตัวแปรเก็บปฏิทิน Custom
+        this.calendarInstance = null;
 
         this.initDOMElements(); this.loadData(); this.setupEventListeners(); this.startClock();
         this.attachments = new AttachmentStore();
@@ -93,7 +93,7 @@ class App {
 
         this.staffProfileAvatar = document.getElementById('staffProfileAvatar'); this.staffProfileName = document.getElementById('staffProfileName');
         this.staffProfileRole = document.getElementById('staffProfileRole'); this.staffStatTodo = document.getElementById('staffStatTodo');
-        this.staffStatProgress = document.getElementById('staffStatProgress'); this.staffStatReview = document.getElementById('staffStatReview');
+        this.staffStatProgress = document.getElementById('staffStatProgress'); this.staffStatReview = document.getElementById('staffStaffReview');
         this.staffStatDone = document.getElementById('staffStatDone'); this.kanbanTodo = document.getElementById('kanban-todo');
         this.kanbanProgress = document.getElementById('kanban-progress'); this.kanbanReview = document.getElementById('kanban-review');
         this.kanbanDone = document.getElementById('kanban-done'); this.staffTasksTableBody = document.querySelector('#staffTasksTable tbody');
@@ -379,66 +379,230 @@ class App {
         });
     }
 
-    // 📅 ระบบปฏิทิน Custom (FullCalendar.js) แทนที่ Iframe เก่า
+    // 📅 ระบบปฏิทิน Custom (ผสานร่างข้อมูลอัตโนมัติเมื่อเจองานห้วงเวลาเดียวกัน)
     renderOutlookSharedCalendar() {
         const calendarContainer = document.getElementById('fullCalendarContainer'); 
         if (!calendarContainer) return;
         
-        // ล้างปฏิทินเก่าออก (ถ้ามี)
         if (this.calendarInstance) {
             this.calendarInstance.destroy();
             this.calendarInstance = null;
         }
-        
-        calendarContainer.innerHTML = ''; // เคลียร์พื้นที่
+        calendarContainer.innerHTML = ''; 
 
-        // เรียกใช้งาน FullCalendar พร้อมระบบ Google Calendar API
+        // 🟢 กลไกการรวมร่างงานตาม "ห้วงเวลาเดียวกัน" (startDate และ deadline ตรงกัน)
+        const groupedTasks = {};
+        this.tasks.forEach(t => {
+            const key = `${t.startDate}_${t.deadline}`;
+            if (!groupedTasks[key]) {
+                groupedTasks[key] = [];
+            }
+            groupedTasks[key].push(t);
+        });
+
+        const appEvents = Object.keys(groupedTasks).map(key => {
+            const tasksInGroup = groupedTasks[key];
+            
+            // ผสานชื่อชื่องานเข้าด้วยกันเพื่อโชว์ในแท่งเดียว
+            let title = tasksInGroup.map(t => t.name).join(' + ');
+            
+            // คำนวณสีตามลำดับความสำคัญของกลุ่มงานรวม
+            let color = '#94a3b8'; 
+            if (tasksInGroup.some(t => this.isOverdue(t))) color = '#ef4444';
+            else if (tasksInGroup.some(t => t.status === 'รอการอนุมัติ')) color = '#a855f7';
+            else if (tasksInGroup.some(t => t.status === 'กำลังทำ')) color = '#eab308';
+            else if (tasksInGroup.every(t => t.status === 'เสร็จสิ้น')) color = '#10b981';
+
+            let dStart = tasksInGroup[0].startDate ? tasksInGroup[0].startDate : new Date().toISOString().split('T')[0];
+            let dEnd = tasksInGroup[0].deadline ? new Date(tasksInGroup[0].deadline) : new Date(dStart);
+            dEnd.setDate(dEnd.getDate() + 1); 
+
+            return {
+                id: tasksInGroup[0].id,
+                title: title,
+                start: dStart,
+                end: dEnd.toISOString().split('T')[0],
+                color: color,
+                extendedProps: { 
+                    isAppTask: true,
+                    allTasks: tasksInGroup // ส่งอาเรย์ของภารกิจย่อยทั้งหมดติดไปด้วย
+                }
+            };
+        });
+
         this.calendarInstance = new FullCalendar.Calendar(calendarContainer, {
             headerToolbar: {
-                left: 'prev,next',
+                left: 'prev,next today',
                 center: 'title',
-                right: 'today,dayGridMonth,listMonth'
+                right: 'dayGridMonth,listMonth'
             },
             initialView: 'dayGridMonth',
-            locale: 'th', // ใช้ภาษาไทย
+            locale: 'th',
             height: '100%',
-            
-            // 🔑 กุญแจ API Key และ Calendar ID ที่ขอมาจาก Google
-            googleCalendarApiKey: 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM',
-            events: 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com',
-            
-            // 📱 เวลากดที่งานในปฏิทิน ให้โชว์ Modal ของแอปแทน (ป้องกันการเด้งไปเว็บ Google Calendar)
-            eventClick: function(info) {
-                info.jsEvent.preventDefault(); // สกัดกั้นไม่ให้มือถือเด้งไปหน้าเว็บอื่น
-                
-                // ดึงข้อมูลกิจกรรม
-                const title = info.event.title;
-                const startStr = info.event.start ? info.event.start.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : '-';
-                const endStr = info.event.end ? info.event.end.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : startStr;
-                const desc = info.event.extendedProps.description || 'ไม่มีรายละเอียดระบุไว้';
-                const url = info.event.url;
-
-                // ใส่ข้อมูลลงใน Modal
-                document.getElementById('eventTitle').textContent = title;
-                document.getElementById('eventTime').textContent = `${startStr} - ${endStr}`;
-                document.getElementById('eventDescription').innerHTML = desc;
-                
-                // ปุ่มสำหรับเปิดลิงก์แก้ไข
-                const btnLink = document.getElementById('eventLinkBtn');
-                if (url) {
-                    btnLink.href = url;
-                    btnLink.style.display = 'inline-block';
-                } else {
-                    btnLink.style.display = 'none';
+            contentHeight: 'auto',
+            handleWindowResize: true,
+            eventSources: [
+                {
+                    googleCalendarApiKey: 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM',
+                    googleCalendarId: 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com',
+                    color: '#3b82f6'
+                },
+                {
+                    events: appEvents
                 }
+            ],
+            eventClick: (info) => {
+                info.jsEvent.preventDefault(); 
+                if (info.event.extendedProps.isAppTask) {
+                    const allTasks = info.event.extendedProps.allTasks;
+                    if (allTasks && allTasks.length > 0) {
+                        // ดีดเรียกฟังก์ชันแสดงกล่องรายละเอียดแบบรวมกลุ่ม
+                        this.viewMergedTaskDetails(allTasks);
+                    }
+                } else {
+                    const title = info.event.title;
+                    const startStr = info.event.start ? info.event.start.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : '-';
+                    const endStr = info.event.end ? info.event.end.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : startStr;
+                    const desc = info.event.extendedProps.description || 'ไม่มีรายละเอียดระบุไว้';
+                    const url = info.event.url;
 
-                // เปิด Modal โชว์
-                document.getElementById('eventModal').classList.add('show');
+                    document.getElementById('eventTitle').textContent = title;
+                    document.getElementById('eventTime').textContent = `${startStr} - ${endStr}`;
+                    document.getElementById('eventDescription').innerHTML = desc;
+                    
+                    const btnLink = document.getElementById('eventLinkBtn');
+                    if (url) {
+                        btnLink.href = url;
+                        btnLink.style.display = 'inline-block';
+                    } else {
+                        btnLink.style.display = 'none';
+                    }
+
+                    document.getElementById('eventModal').classList.add('show');
+                }
             }
         });
 
-        // แสดงผลปฏิทิน
         this.calendarInstance.render();
+    }
+
+    // 🔬 ฟังก์ชันประกอบร่าง Modal รายละเอียด เมื่องานในปฏิทินโดนมัดรวมกัน (ดึงรายละเอียดและ PDF ครบถ้วน)
+    viewMergedTaskDetails(allTasks) {
+        if (!allTasks || allTasks.length === 0) return;
+        
+        // หากห้วงเวลานั้นมีงานชิ้นเดียว ให้ใช้ระบบดีดหน้าต่างเดี่ยวตัวเดิมปกติ
+        if (allTasks.length === 1) {
+            this.viewTaskDetails(allTasks[0].id);
+            return;
+        }
+
+        // กรณีเป็นกลุ่มภารกิจห้วงเวลาเดียวกัน ทำการผสานข้อความแสดงผลกลางจอ
+        if(this.detailTitle) this.detailTitle.textContent = `[รวมแผนงานห้วงเวลาเดียวกัน] ทั้งหมด ${allTasks.length} ภารกิจ`; 
+        
+        if(this.detailDescription) {
+            let compiledDesc = '';
+            allTasks.forEach((task, index) => {
+                compiledDesc += `📌 ภารกิจที่ ${index + 1}: ${task.name}\n📝 รายละเอียดการปฏิบัติ: ${task.description || 'ไม่ได้ระบุไว้'}\n🚦 สถานะ: ${task.status} | 🔐 ชั้นความลับ: ${task.secrecy}\n---------------------------------------------\n\n`;
+            });
+            this.detailDescription.textContent = compiledDesc;
+        }
+
+        if(this.detailSecrecyBadge) {
+            this.detailSecrecyBadge.textContent = "แผนงานร่วม";
+            this.detailSecrecyBadge.className = 'detail-secrecy-badge secrecy-normal';
+        }
+        
+        if(this.detailAssigneeAvatar) this.detailAssigneeAvatar.src = 'https://img.icons8.com/color/96/group.png'; 
+        if(this.detailAssigneeName) this.detailAssigneeName.textContent = 'เจ้าหน้าที่ปฏิบัติงานร่วมในห้วง';
+        if(this.detailStatusBadge) this.detailStatusBadge.innerHTML = `<span class="status-badge badge-progress">มีงานกำลังดำเนินงาน</span>`; 
+        if(this.detailUrgencyBadge) this.detailUrgencyBadge.innerHTML = `<span class="urgency-badge urgency-v-urgent"><i class="fas fa-circle-info"></i> ตรวจสอบรายละเอียดแยกย่อย</span>`;
+        if(this.detailReceiveDate) this.detailReceiveDate.textContent = allTasks[0].receiveDate || allTasks[0].startDate;
+        if(this.detailStartDate) this.detailStartDate.textContent = allTasks[0].startDate; 
+        if(this.detailDeadline) this.detailDeadline.textContent = allTasks[0].deadline;
+
+        if (this.detailOverdueBox) {
+            if (allTasks.some(t => this.isOverdue(t))) { 
+                this.detailOverdueBox.innerHTML = '<i class="fas fa-triangle-exclamation"></i> แจ้งเตือน: มีบางแผนงานในห้วงเวลานี้เลยกำหนดส่ง!'; 
+                this.detailOverdueBox.classList.remove('d-none'); 
+            } else { 
+                this.detailOverdueBox.classList.add('d-none'); 
+            }
+        }
+
+        if(this.detailModalFooter) {
+            this.detailModalFooter.innerHTML = '';
+            const btnClose = document.createElement('button');
+            btnClose.className = 'btn btn-secondary';
+            btnClose.style.width = '100%';
+            btnClose.innerHTML = '<i class="fas fa-times"></i> ปิดหน้าต่างการแสดงผลรวม';
+            btnClose.addEventListener('click', () => this.closeDetailModal());
+            this.detailModalFooter.appendChild(btnClose);
+        }
+
+        // 📂 รวมพลังปุ่มดาวน์โหลดไฟล์ PDF ทุกชิ้นในทุกงานย่อยขึ้นมาสแตนด์บายกริบ
+        if (this.detailPdfItem && this.pdfButtonsContainer) {
+            this.pdfButtonsContainer.innerHTML = '';
+            let hasAnyPdf = false;
+
+            allTasks.forEach(task => {
+                if (task.hasAttachment && task.attachmentName) {
+                    hasAnyPdf = true;
+                    let fileNamesList = [];
+                    try { fileNamesList = JSON.parse(task.attachmentName); if (!Array.isArray(fileNamesList)) fileNamesList = [task.attachmentName]; } 
+                    catch (e) { fileNamesList = [task.attachmentName]; }
+
+                    fileNamesList.forEach((fName, index) => {
+                        const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn btn-secondary';
+                        btn.style = 'padding: 6px 10px; font-size: 11px; font-weight: 600; text-align: left; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 5px; width: 100%;';
+                        btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> [งานที่ ${allTasks.indexOf(task)+1}] ${fName}`;
+                        btn.addEventListener('click', async () => {
+                            if (this.isCloudMode) {
+                                const kvKey = fileNamesList.length === 1 ? task.id : `${task.id}_${index}`;
+                                window.open(`/api/pdf?taskId=${kvKey}`, '_blank');
+                            } else {
+                                btn.disabled = true; const originalHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์...';
+                                try {
+                                    const record = await this.attachments.getAttachment(task.id);
+                                    if (record) {
+                                        let fileDataToOpen = null;
+                                        if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData;
+                                        else if (record.fileData) fileDataToOpen = record.fileData;
+                                        if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank');
+                                        else alert('ไม่พบข้อมูลไฟล์แนบนี้');
+                                    } else { alert('ไม่พบไฟล์แนบในฐานข้อมูล'); }
+                                } catch (err) {} finally { btn.disabled = false; btn.innerHTML = originalHtml; }
+                            }
+                        });
+                        this.pdfButtonsContainer.appendChild(btn);
+                    });
+                }
+            });
+
+            if (hasAnyPdf) this.detailPdfItem.classList.remove('d-none');
+            else this.detailPdfItem.classList.add('d-none');
+        }
+
+        // รวมประวัติล็อกการบันทึกงาน
+        const historyLogContainer = document.getElementById('detailHistoryLog');
+        if (historyLogContainer) {
+            historyLogContainer.innerHTML = '';
+            let allLogs = [];
+            allTasks.forEach(task => {
+                if (task.history) {
+                    task.history.forEach(log => { allLogs.push({ ...log, taskName: task.name }); });
+                }
+            });
+            
+            if (allLogs.length > 0) {
+                allLogs.sort((a, b) => new Date(b.time) - new Date(a.time));
+                allLogs.forEach(log => {
+                    const timeStr = new Date(log.time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+                    historyLogContainer.innerHTML += `<div style="display: flex; gap: 10px; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 5px;"><div style="min-width: 110px; font-weight: 600; color: var(--primary);"><i class="far fa-clock"></i> ${timeStr}</div><div><small style="color:var(--text-muted);">[งาน:${allLogs.indexOf(log)+1}]</small> <span style="color: var(--text-primary);">${log.user}</span>: ${log.action}</div></div>`;
+                });
+            } else { historyLogContainer.innerHTML = '<i>ยังไม่มีประวัติการดำเนินการ</i>'; }
+        }
+
+        if(this.taskDetailModal) this.taskDetailModal.classList.add('show');
     }
 
     renderMasterTaskListTable() {
@@ -572,7 +736,7 @@ class App {
             const oldStatus = task.status; task.status = newStatus;
             if (!task.history) task.history = [];
             task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
-            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}" (ลากวางผ่าน Kanban)`);
+            this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"ผ่านกระดาน Kanban`);
             this.saveData(); this.renderStaffKanban();
             if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
             this.showToast(`ย้ายภารกิจไปยัง "${newStatus}" เรียบร้อย`);
@@ -722,6 +886,9 @@ class App {
         if (lineAlertMessage !== '') this.sendLineAlert(taskObj, lineAlertMessage);
         this.saveData(); this.closeTaskModal();
         if (this.isCloudMode) { try { await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskObj) }); } catch (err) {} }
+        
+        if (this.calendarInstance) this.calendarInstance.refetchEvents();
+        
         this.switchView(this.currentView); this.showToast(id ? 'อัปเดตข้อมูลสำเร็จ' : 'มอบหมายงานสำเร็จ');
     }
 
@@ -731,6 +898,9 @@ class App {
             this.attachments.deleteAttachment(taskId).catch(e => e);
             this.saveData();
             if (this.isCloudMode) fetch(`/api/tasks?id=${taskId}`, { method: 'DELETE' }).catch(e => e);
+            
+            if (this.calendarInstance) this.calendarInstance.refetchEvents();
+            
             this.switchView(this.currentView); this.showToast('ลบภารกิจเรียบร้อย', 'danger');
         }
     }
@@ -852,6 +1022,9 @@ class App {
         this.sendLineAlert(task, `สถานะเปลี่ยนเป็น "${newStatus}"`);
         this.saveData(); this.closeDetailModal();
         if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
+        
+        if (this.calendarInstance) this.calendarInstance.refetchEvents();
+
         this.switchView(this.currentView); this.showToast(`บันทึกสถานะ: ${newStatus}`);
     }
 
