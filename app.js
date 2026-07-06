@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับสมบูรณ์ 100%: กู้คืนระบบจัดการงานทั้งหมด (CRUD), Drag & Drop, สถิติ และ *ฟังก์ชันกดเชื่อมโยงแดชบอร์ด* กลับมาครบถ้วน
+ * ฉบับร่างทอง (Ultimate Version): มีระบบตาข่ายนิรภัยกู้ชีพแอดมิน (ensureAdminStaff) + ระบบเชื่อมโยงหน้าสถิติ + Gantt Chart ครบ 100%
  */
 
 class AttachmentStore {
@@ -20,9 +20,7 @@ class AttachmentStore {
             const store = transaction.objectStore(this.storeName);
             const filesArray = Array.from(files).map(f => ({ fileName: f.name, fileType: f.type, fileData: f }));
             const record = { taskId: taskId, isMultiple: true, files: filesArray };
-            const request = store.put(record);
-            request.onsuccess = () => resolve();
-            request.onerror = (e) => reject(e);
+            const request = store.put(record); request.onsuccess = () => resolve(); request.onerror = (e) => reject(e);
         });
     }
     getAttachment(taskId) {
@@ -30,9 +28,7 @@ class AttachmentStore {
             if (!this.db) { reject("Database not initialized"); return; }
             const transaction = this.db.transaction([this.storeName], 'readonly');
             const store = transaction.objectStore(this.storeName);
-            const request = store.get(taskId);
-            request.onsuccess = (e) => resolve(e.target.result);
-            request.onerror = (e) => reject(e);
+            const request = store.get(taskId); request.onsuccess = (e) => resolve(e.target.result); request.onerror = (e) => reject(e);
         });
     }
     deleteAttachment(taskId) {
@@ -40,9 +36,7 @@ class AttachmentStore {
             if (!this.db) { reject("Database not initialized"); return; }
             const transaction = this.db.transaction([this.storeName], 'readwrite');
             const store = transaction.objectStore(this.storeName);
-            const request = store.delete(taskId);
-            request.onsuccess = () => resolve();
-            request.onerror = (e) => reject(e);
+            const request = store.delete(taskId); request.onsuccess = () => resolve(); request.onerror = (e) => reject(e);
         });
     }
 }
@@ -55,13 +49,7 @@ const DEFAULT_STAFF = [
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40, lineUserId: '' }
 ];
-
-const DEFAULT_TASKS = [
-    { id: 'task-101', name: 'เตรียมข้อมูลบรรยายสรุป เสธ.ทภ.3', description: 'เตรียมสไลด์ Powerpoint ยุทธการ และสถิติกำลังพล', assigneeId: 'dev-chaisith', status: 'กำลังทำ', urgency: 'ด่วนที่สุด', secrecy: 'ลับมาก', startDate: '2026-07-01', deadline: '2026-07-10', history: [] },
-    { id: 'task-102', name: 'วางแผนการฝึกร่วมผสม ตปท.', description: 'ร่างกรอบเอกสารความร่วมมือทางทหารและการฝึกร่วม', assigneeId: 'staff-1', status: 'รอการอนุมัติ', urgency: 'ด่วน', secrecy: 'ลับที่สุด', startDate: '2026-07-02', deadline: '2026-07-12', history: [] },
-    { id: 'task-103', name: 'ตรวจความพร้อมรบ กองพันเคลื่อนที่เร็ว', description: 'ลงพื้นที่ตรวจเอกสารสารบรรณยุทธการประจำหน่วย', assigneeId: 'staff-2', status: 'เสร็จสิ้น', urgency: 'ปกติ', secrecy: 'ปกติ', startDate: '2026-07-03', deadline: '2026-07-05', history: [] },
-    { id: 'task-104', name: 'สรุปรายงานข่าวกรองภัยคุกคามชายแดน', description: 'วิเคราะห์สถานการณ์ความมั่นคงและแนวโน้มสถานการณ์', assigneeId: 'staff-2', status: 'รอดำเนินการ', urgency: 'ด่วนที่สุด', secrecy: 'ลับมาก', startDate: '2026-07-04', deadline: '2026-07-08', history: [] }
-];
+const DEFAULT_TASKS = [];
 
 class App {
     constructor() {
@@ -137,17 +125,27 @@ class App {
         this.chatToggleIcon = document.getElementById('chatToggleIcon'); this.chatUnreadBadge = document.getElementById('chatUnreadBadge');
     }
 
+    // 🛡️ ระบบตาข่ายนิรภัย: บังคับสร้างบัญชีหัวหน้าและแอดมินกลับคืนมาเสมอถ้าระบบหาไม่เจอ (ป้องกันแอดมินหาย)
+    ensureAdminStaff() {
+        if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
+        if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
+        if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
+    }
+
     loadData() {
-        if (!localStorage.getItem('operations_portal_reset_v2')) { localStorage.clear(); localStorage.setItem('operations_portal_reset_v2', 'true'); }
+        if (!localStorage.getItem('operations_portal_reset_v3')) { localStorage.clear(); localStorage.setItem('operations_portal_reset_v3', 'true'); }
         const storedData = localStorage.getItem('operations_portal_data');
         if (storedData) {
             try {
                 const parsed = JSON.parse(storedData);
                 this.staff = parsed.staff && parsed.staff.length > 0 ? parsed.staff : DEFAULT_STAFF;
-                this.tasks = parsed.tasks && parsed.tasks.length > 0 ? parsed.tasks : DEFAULT_TASKS;
+                this.tasks = parsed.tasks ? parsed.tasks : DEFAULT_TASKS;
                 this.messages = parsed.messages || []; 
             } catch (e) { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; }
-        } else { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; this.saveData(); }
+        } else { this.staff = DEFAULT_STAFF; this.tasks = DEFAULT_TASKS; this.messages = []; }
+        
+        this.ensureAdminStaff(); // เรียกใช้ตาข่ายนิรภัย!
+        this.saveData();
     }
 
     saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks, messages: this.messages })); }
@@ -158,6 +156,7 @@ class App {
             const staffRes = await fetch('/api/staff'); if (staffRes.ok) { const data = await staffRes.json(); if (data && data.length > 0) this.staff = data; }
             const tasksRes = await fetch('/api/tasks'); if (tasksRes.ok) { const data = await tasksRes.json(); if (data && data.length > 0) this.tasks = data; }
             const chatRes = await fetch('/api/chat'); if (chatRes.ok) { const data = await chatRes.json(); if (data && data.length !== this.messages.length) this.messages = data; }
+            this.ensureAdminStaff(); // เรียกใช้ตาข่ายนิรภัย!
             this.saveData();
         } catch (err) {}
     }
@@ -262,7 +261,7 @@ class App {
         if(member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) this.switchView('leader-dashboard'); else this.switchView('staff-kanban');
     }
 
-    // ✅ กู้คืนระบบเชื่อมโยงหน้าสถิติแดชบอร์ดให้คลิกไปที่หน้าตารางภารกิจได้
+    // ✅ กู้คืนระบบเชื่อมโยงหน้าสถิติไปยังหน้ากรองงานแฟ้มสะสม (ที่ลืมใส่ไป)
     navigateToTasksWithFilter(statusValue) {
         if (this.filterAssignee) this.filterAssignee.value = 'all';
         if (this.filterUrgency) this.filterUrgency.value = 'all';
