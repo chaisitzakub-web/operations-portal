@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * แก้ไขปัญหาข้อมูลกำลังพลหาย และเชื่อมต่อกลไกระบบระบุภารกิจย่อยแบบเบ็ดเสร็จ
+ * ฉบับสมบูรณ์แก้บั๊ก: กิจย่อยคำนวณ % + รายชื่อกำลังพลฟื้นคืนชีพ 100% + ห้ามล่มห้ามเอ๋อ
  */
 
 class AttachmentStore {
@@ -65,8 +65,8 @@ class App {
             this.initDOMElements(); this.loadData(); this.setupEventListeners(); this.startClock();
             this.attachments = new AttachmentStore();
             this.attachments.init().then(async () => { await this.syncWithCloudflare(); this.render(); })
-            .catch(async err => { await this.syncWithCloudflare(); this.render(); });
-        } catch (err) { console.error("Initialization error:", err); }
+            .catch(async err => { console.warn("DB Storage Error", err); await this.syncWithCloudflare(); this.render(); });
+        } catch (err) { alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message); console.error(err); }
     }
 
     initDOMElements() {
@@ -126,13 +126,6 @@ class App {
         this.pdfButtonsContainer = document.getElementById('pdfButtonsContainer'); this.toastContainer = document.getElementById('toastContainer');
     }
 
-    ensureAdminStaff() {
-        if (!this.staff || !Array.isArray(this.staff)) this.staff = [];
-        if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
-        if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
-        if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
-    }
-
     getTaskProgress(task) {
         if (!task.subTasks || !Array.isArray(task.subTasks) || task.subTasks.length === 0) {
             return task.status === 'เสร็จสิ้น' ? 100 : 0;
@@ -148,8 +141,6 @@ class App {
                 const parsed = JSON.parse(storedData);
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : JSON.parse(JSON.stringify(DEFAULT_TASKS));
-                
-                // 🔄 ล้างแผลข้อมูลเก่าที่พังให้อ่านโครงสร้างกิจย่อยได้ทันที
                 this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
             } catch (e) { 
                 this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); 
@@ -159,8 +150,7 @@ class App {
             this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); 
             this.tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS)); 
         }
-        this.ensureAdminStaff(); 
-        this.saveData();
+        this.ensureAdminStaff(); this.saveData();
     }
 
     saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks })); }
@@ -198,8 +188,7 @@ class App {
                     if (name) {
                         if (!this.tempSubTasks) this.tempSubTasks = [];
                         this.tempSubTasks.push({ id: `sub-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, name: name, isDone: false });
-                        input.value = '';
-                        this.renderSubTaskListInModal();
+                        input.value = ''; this.renderSubTaskListInModal();
                     }
                 }
             });
@@ -222,15 +211,10 @@ class App {
         const filters = [this.filterAssignee, this.filterUrgency, this.filterSecrecy, this.filterStatus];
         filters.forEach(filter => { if(filter) filter.addEventListener('change', () => { if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); else this.renderMasterTaskListTable(); }); });
         if(this.searchTask) this.searchTask.addEventListener('input', () => { if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); else this.renderMasterTaskListTable(); });
-
-        if(this.taskStatusInput) this.taskStatusInput.addEventListener('change', () => { if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid'; });
-        if(this.taskPdfInput) { this.taskPdfInput.addEventListener('change', (e) => { const files = e.target.files; if(this.pdfUploadStatus) { if (files.length === 0) this.pdfUploadStatus.textContent = 'ไม่มีไฟล์'; else if (files.length === 1) this.pdfUploadStatus.textContent = `เลือกแล้ว 1 ไฟล์`; else this.pdfUploadStatus.textContent = `เลือกแล้ว ${files.length} ไฟล์`; } }); }
-        window.addEventListener('click', (e) => { if (e.target === this.taskModal) this.closeTaskModal(); if (e.target === this.taskDetailModal) this.closeDetailModal(); if (e.target === document.getElementById('eventModal')) document.getElementById('eventModal').classList.remove('show'); });
     }
 
     renderSubTaskListInModal() {
-        const container = document.getElementById('subTaskListContainer');
-        if (!container) return;
+        const container = document.getElementById('subTaskListContainer'); if (!container) return;
         container.innerHTML = '';
         if (!this.tempSubTasks || this.tempSubTasks.length === 0) {
             container.innerHTML = '<span style="color: #64748b; font-size: 12px; font-style: italic; padding: 5px 0; display:block; text-align:center;">ยังไม่มีกิจย่อยถูกเพิ่มเข้ามา</span>';
@@ -247,186 +231,32 @@ class App {
         });
     }
 
-    removeTempSubTask(index) {
-        if (this.tempSubTasks && this.tempSubTasks[index]) {
-            this.tempSubTasks.splice(index, 1);
-            this.renderSubTaskListInModal();
-        }
-    }
+    removeTempSubTask(index) { if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks.splice(index, 1); this.renderSubTaskListInModal(); } }
 
     toggleSubTaskStatus(taskId, subId, isChecked) {
-        const task = this.tasks.find(t => t.id === taskId);
-        if (!task || !task.subTasks) return;
+        const task = this.tasks.find(t => t.id === taskId); if (!task || !task.subTasks) return;
         const sub = task.subTasks.find(s => s.id === subId);
         if (sub) {
-            sub.isDone = isChecked;
-            const progress = this.getTaskProgress(task);
-            
-            const pctText = document.getElementById('detailSubTaskPercentage');
-            const pBar = document.getElementById('detailSubTaskProgressBar');
-            if(pctText) pctText.textContent = `${progress}%`;
-            if(pBar) pBar.style.width = `${progress}%`;
-
-            if (!task.history) task.history = [];
-            const now = new Date();
+            sub.isDone = isChecked; const progress = this.getTaskProgress(task);
+            const pctText = document.getElementById('detailSubTaskPercentage'); const pBar = document.getElementById('detailSubTaskProgressBar');
+            if(pctText) pctText.textContent = `${progress}%`; if(pBar) pBar.style.width = `${progress}%`;
+            if (!task.history) task.history = []; const now = new Date();
             task.history.push({ time: now.toISOString(), action: `${isChecked ? 'ปฏิบัติสำเร็จ' : 'ยกเลิกสำเร็จ'}: กิจย่อย "${sub.name}" (${progress}%)`, user: this.currentUserName.textContent });
-            
             this.saveData();
-            
             if (this.currentView === 'leader-tasks') this.renderMasterTaskListTable();
             else if (this.currentView === 'staff-kanban') this.renderStaffKanban();
             else if (this.currentView === 'staff-tasks') this.renderStaffTaskListTable();
             else if (this.currentView === 'leader-dashboard') this.renderLeaderDashboard();
-            
             this.viewTaskDetails(taskId);
-
-            if (this.isCloudMode) {
-                fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err);
-            }
+            if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
         }
     }
 
-    renderOutlookSharedCalendar() {
-        const calendarContainer = document.getElementById('fullCalendarContainer'); 
-        if (!calendarContainer) return;
-        if (this.calendarInstance) { this.calendarInstance.destroy(); this.calendarInstance = null; }
-        calendarContainer.innerHTML = ''; 
+    startClock() { const liveTimeEl = document.getElementById('liveTime'); const updateTime = () => { if (liveTimeEl) liveTimeEl.textContent = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }; updateTime(); setInterval(updateTime, 1000); }
 
-        const groupedTasks = {};
-        this.tasks.forEach(t => {
-            const key = `${t.startDate}_${t.deadline}`;
-            if (!groupedTasks[key]) { groupedTasks[key] = []; }
-            groupedTasks[key].push(t);
-        });
-
-        const appEvents = Object.keys(groupedTasks).map(key => {
-            const tasksInGroup = groupedTasks[key];
-            let title = tasksInGroup.map(t => {
-                const pct = this.getTaskProgress(t);
-                return `${t.name} (${pct}%)`;
-            }).join(' + ');
-
-            let color = '#94a3b8'; 
-            if (tasksInGroup.some(t => this.isOverdue(t))) color = '#ef4444';
-            else if (tasksInGroup.some(t => t.status === 'รอการอนุมัติ')) color = '#a855f7';
-            else if (tasksInGroup.some(t => t.status === 'กำลังทำ')) color = '#eab308';
-            else if (tasksInGroup.every(t => t.status === 'เสร็จสิ้น')) color = '#10b981';
-
-            let dStart = tasksInGroup[0].startDate ? tasksInGroup[0].startDate : new Date().toISOString().split('T')[0];
-            let dEnd = tasksInGroup[0].deadline ? new Date(tasksInGroup[0].deadline) : new Date(dStart);
-            dEnd.setDate(dEnd.getDate() + 1); 
-
-            return {
-                id: tasksInGroup[0].id, title: title, start: dStart, end: dEnd.toISOString().split('T')[0], color: color,
-                extendedProps: { isAppTask: true, allTasks: tasksInGroup }
-            };
-        });
-
-        this.calendarInstance = new FullCalendar.Calendar(calendarContainer, {
-            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
-            initialView: 'dayGridMonth', locale: 'th',
-            dayHeaderContent: function(arg) {
-                const shortDays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
-                return shortDays[arg.date.getDay()];
-            },
-            height: '100%', contentHeight: 'auto', handleWindowResize: true,
-            eventSources: [
-                {
-                    events: async (info, successCallback, failureCallback) => {
-                        const apiKey = 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM';
-                        const calId = 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com';
-                        const timeMin = info.start.toISOString(); const timeMax = info.end.toISOString();
-                        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?key=${apiKey}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`;
-                        try {
-                            const res = await fetch(url);
-                            if (!res.ok) { successCallback([]); return; }
-                            const data = await res.json();
-                            if (data.items) {
-                                const gEvents = data.items.map(item => ({
-                                    id: item.id, title: item.summary || 'ไม่มีชื่อกิจกรรม',
-                                    start: item.start.dateTime || item.start.date, end: item.end?.dateTime || item.end?.date,
-                                    url: item.htmlLink, color: '#3b82f6',
-                                    extendedProps: { isAppTask: false, description: item.description || 'ไม่มีรายละเอียดระบุไว้', attachments: item.attachments || [] }
-                                }));
-                                successCallback(gEvents);
-                            } else { successCallback([]); }
-                        } catch(err) { successCallback([]); }
-                    }
-                },
-                { events: appEvents }
-            ],
-            eventClick: (info) => {
-                info.jsEvent.preventDefault(); 
-                if (info.event.extendedProps.isAppTask) {
-                    const allTasks = info.event.extendedProps.allTasks;
-                    if (allTasks && allTasks.length > 0) { this.viewMergedTaskDetails(allTasks); }
-                } else {
-                    const title = info.event.title;
-                    const startStr = info.event.start ? info.event.start.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : '-';
-                    const endStr = info.event.end ? info.event.end.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : startStr;
-                    const desc = info.event.extendedProps.description;
-                    const attachments = info.event.extendedProps.attachments; 
-                    const url = info.event.url || info.event.extendedProps.url;
-
-                    document.getElementById('eventTitle').textContent = title;
-                    document.getElementById('eventTime').textContent = `${startStr} - ${endStr}`;
-                    document.getElementById('eventDescription').innerHTML = desc;
-                    
-                    const attachWrapper = document.getElementById('eventModalAttachmentsWrapper');
-                    const attachBox = document.getElementById('eventAttachmentsBox');
-                    if (attachWrapper && attachBox) {
-                        attachBox.innerHTML = '';
-                        if (attachments && attachments.length > 0) {
-                            attachments.forEach(att => {
-                                const btn = document.createElement('a'); btn.href = att.fileUrl; btn.target = '_blank'; btn.className = 'btn btn-secondary';
-                                btn.style = 'display: block; padding: 8px 12px; font-size: 12px; font-weight: 600; text-align: left; margin-bottom: 8px; color: var(--text-primary); text-decoration: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;';
-                                let icon = 'fa-file';
-                                if (att.mimeType && att.mimeType.includes('pdf')) icon = 'fa-file-pdf text-danger';
-                                else if (att.mimeType && att.mimeType.includes('image')) icon = 'fa-file-image text-success';
-                                btn.innerHTML = `<i class="fas ${icon}"></i> ${att.title}`;
-                                attachBox.appendChild(btn);
-                            });
-                            attachWrapper.classList.remove('d-none');
-                        } else { attachWrapper.classList.add('d-none'); }
-                    }
-                    const btnLink = document.getElementById('eventLinkBtn');
-                    if (url) { btnLink.href = url; btnLink.style.display = 'inline-block'; } else { btnLink.style.display = 'none'; }
-                    document.getElementById('eventModal').classList.add('show');
-                }
-            }
-        });
-        this.calendarInstance.render();
-    }
-
-    renderStaffKanban() {
-        const member = this.staff.find(m => m.id === this.currentUser); if (!member) return;
-        if (this.staffProfileAvatar) this.staffProfileAvatar.src = member.avatar; 
-        if (this.staffProfileName) this.staffProfileName.textContent = member.name; 
-        if (this.staffProfileRole) this.staffProfileRole.textContent = member.role;
-        
-        const userTasks = this.tasks.filter(t => t.assigneeId === this.currentUser);
-        const todo = userTasks.filter(t => t.status === 'รอดำเนินการ'); 
-        const progress = userTasks.filter(t => t.status === 'กำลังทำ'); 
-        const review = userTasks.filter(t => t.status === 'รอการอนุมัติ'); 
-        const done = userTasks.filter(t => t.status === 'เสร็จสิ้น');
-        
-        // 🔄 ดักจับป้องกันหน้าจอบางเวอร์ชันไม่มี ID สถิติแล้วแอปล่ม
-        if (this.staffStatTodo) this.staffStatTodo.textContent = todo.length; 
-        if (this.staffStatProgress) this.staffStatProgress.textContent = progress.length; 
-        if (this.staffStatReview) this.staffStatReview.textContent = review.length; 
-        if (this.staffStatDone) this.staffStatDone.textContent = done.length;
-        
-        if (document.getElementById('countTodo')) document.getElementById('countTodo').textContent = todo.length;
-        if (document.getElementById('countProgress')) document.getElementById('countProgress').textContent = progress.length;
-        if (document.getElementById('countReview')) document.getElementById('countReview').textContent = review.length;
-        if (document.getElementById('countDone')) document.getElementById('countDone').textContent = done.length;
-
-        if (this.kanbanTodo) this.populateKanbanColumn(this.kanbanTodo, todo); 
-        if (this.kanbanProgress) this.populateKanbanColumn(this.kanbanProgress, progress); 
-        if (this.kanbanReview) this.populateKanbanColumn(this.kanbanReview, review); 
-        if (this.kanbanDone) this.populateKanbanColumn(this.kanbanDone, done);
-    }
-
+    // 🔬 ฟังก์ชันที่ถูกลบทิ้งไป รอบนี้เติมคืนชีพแบบฟูลสเกลแล้วครับ
+    renderLeaderTeam() { this.renderTeamMembers(); }
+    
     renderTeamMembers() {
         if (!this.teamGridCards) return; this.teamGridCards.innerHTML = '';
         const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
@@ -446,6 +276,97 @@ class App {
             seeds.forEach((seed, index) => { const url = `https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`; const img = document.createElement('img'); img.src = url; img.className = 'avatar-opt' + (index === 0 ? ' selected' : ''); img.addEventListener('click', () => { document.querySelectorAll('.avatar-opt').forEach(el => el.classList.remove('selected')); img.classList.add('selected'); if (this.selectedAvatarInput) this.selectedAvatarInput.value = url; }); this.avatarOptionsContainer.appendChild(img); });
             if (this.selectedAvatarInput) this.selectedAvatarInput.value = `https://api.dicebear.com/7.x/bottts/svg?seed=${seeds[0]}`;
         }
+    }
+
+    renderOutlookSharedCalendar() {
+        const calendarContainer = document.getElementById('fullCalendarContainer'); if (!calendarContainer) return;
+        if (this.calendarInstance) { this.calendarInstance.destroy(); this.calendarInstance = null; }
+        calendarContainer.innerHTML = ''; 
+
+        const groupedTasks = {};
+        this.tasks.forEach(t => { const key = `${t.startDate}_${t.deadline}`; if (!groupedTasks[key]) { groupedTasks[key] = []; } groupedTasks[key].push(t); });
+
+        const appEvents = Object.keys(groupedTasks).map(key => {
+            const tasksInGroup = groupedTasks[key];
+            let title = tasksInGroup.map(t => { const pct = this.getTaskProgress(t); return `${t.name} (${pct}%)`; }).join(' + ');
+            let color = '#94a3b8'; if (tasksInGroup.some(t => this.isOverdue(t))) color = '#ef4444'; else if (tasksInGroup.some(t => t.status === 'รอการอนุมัติ')) color = '#a855f7'; else if (tasksInGroup.some(t => t.status === 'กำลังทำ')) color = '#eab308'; else if (tasksInGroup.every(t => t.status === 'เสร็จสิ้น')) color = '#10b981';
+            let dStart = tasksInGroup[0].startDate ? tasksInGroup[0].startDate : new Date().toISOString().split('T')[0];
+            let dEnd = tasksInGroup[0].deadline ? new Date(tasksInGroup[0].deadline) : new Date(dStart); dEnd.setDate(dEnd.getDate() + 1); 
+            return { id: tasksInGroup[0].id, title: title, start: dStart, end: dEnd.toISOString().split('T')[0], color: color, extendedProps: { isAppTask: true, allTasks: tasksInGroup } };
+        });
+
+        this.calendarInstance = new FullCalendar.Calendar(calendarContainer, {
+            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
+            initialView: 'dayGridMonth', locale: 'th',
+            dayHeaderContent: function(arg) { const shortDays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']; return shortDays[arg.date.getDay()]; },
+            height: '100%', contentHeight: 'auto', handleWindowResize: true,
+            eventSources: [
+                {
+                    events: async (info, successCallback, failureCallback) => {
+                        const apiKey = 'AIzaSyC5jcUkKDPXUewzo-vni4ze3YS9k80cUrM'; const calId = 'c7e59cfe55d28e41603548ef57d8d2a558e95487eb64bb81ab642b2ed0948dcf@group.calendar.google.com';
+                        const timeMin = info.start.toISOString(); const timeMax = info.end.toISOString();
+                        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?key=${apiKey}&timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`;
+                        try {
+                            const res = await fetch(url); if (!res.ok) { successCallback([]); return; }
+                            const data = await res.json();
+                            if (data.items) {
+                                const gEvents = data.items.map(item => ({ id: item.id, title: item.summary || 'ไม่มีชื่อกิจกรรม', start: item.start.dateTime || item.start.date, end: item.end?.dateTime || item.end?.date, url: item.htmlLink, color: '#3b82f6', extendedProps: { isAppTask: false, description: item.description || 'ไม่มีรายละเอียดระบุไว้', attachments: item.attachments || [] } }));
+                                successCallback(gEvents);
+                            } else { successCallback([]); }
+                        } catch(err) { successCallback([]); }
+                    }
+                },
+                { events: appEvents }
+            ],
+            eventClick: (info) => {
+                info.jsEvent.preventDefault(); 
+                if (info.event.extendedProps.isAppTask) {
+                    const allTasks = info.event.extendedProps.allTasks; if (allTasks && allTasks.length > 0) { this.viewMergedTaskDetails(allTasks); }
+                } else {
+                    const title = info.event.title; const startStr = info.event.start ? info.event.start.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : '-'; const endStr = info.event.end ? info.event.end.toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' }) : startStr; const desc = info.event.extendedProps.description; const attachments = info.event.extendedProps.attachments; const url = info.event.url || info.event.extendedProps.url;
+                    document.getElementById('eventTitle').textContent = title; document.getElementById('eventTime').textContent = `${startStr} - ${endStr}`; document.getElementById('eventDescription').innerHTML = desc;
+                    const attachWrapper = document.getElementById('eventModalAttachmentsWrapper'); const attachBox = document.getElementById('eventAttachmentsBox');
+                    if (attachWrapper && attachBox) {
+                        attachBox.innerHTML = '';
+                        if (attachments && attachments.length > 0) {
+                            attachments.forEach(att => {
+                                const btn = document.createElement('a'); btn.href = att.fileUrl; btn.target = '_blank'; btn.className = 'btn btn-secondary'; btn.style = 'display: block; padding: 8px 12px; font-size: 12px; font-weight: 600; text-align: left; margin-bottom: 8px; color: var(--text-primary); text-decoration: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;';
+                                let icon = 'fa-file'; if (att.mimeType && att.mimeType.includes('pdf')) icon = 'fa-file-pdf text-danger'; else if (att.mimeType && att.mimeType.includes('image')) icon = 'fa-file-image text-success';
+                                btn.innerHTML = `<i class="fas ${icon}"></i> ${att.title}`; attachBox.appendChild(btn);
+                            }); attachWrapper.classList.remove('d-none');
+                        } else { attachWrapper.classList.add('d-none'); }
+                    }
+                    const btnLink = document.getElementById('eventLinkBtn'); if (url) { btnLink.href = url; btnLink.style.display = 'inline-block'; } else { btnLink.style.display = 'none'; }
+                    document.getElementById('eventModal').classList.add('show');
+                }
+            }
+        });
+        this.calendarInstance.render();
+    }
+
+    renderStaffKanban() {
+        const member = this.staff.find(m => m.id === this.currentUser); if (!member) return;
+        if (this.staffProfileAvatar) this.staffProfileAvatar.src = member.avatar; 
+        if (this.staffProfileName) this.staffProfileName.textContent = member.name; 
+        if (this.staffProfileRole) this.staffProfileRole.textContent = member.role;
+        
+        const userTasks = this.tasks.filter(t => t.assigneeId === this.currentUser);
+        const todo = userTasks.filter(t => t.status === 'รอดำเนินการ'); const progress = userTasks.filter(t => t.status === 'กำลังทำ'); const review = userTasks.filter(t => t.status === 'รอการอนุมัติ'); const done = userTasks.filter(t => t.status === 'เสร็จสิ้น');
+        
+        if (this.staffStatTodo) this.staffStatTodo.textContent = todo.length; 
+        if (this.staffStatProgress) this.staffStatProgress.textContent = progress.length; 
+        if (this.staffStatReview) this.staffStatReview.textContent = review.length; 
+        if (this.staffStatDone) this.staffStatDone.textContent = done.length;
+        
+        if (document.getElementById('countTodo')) document.getElementById('countTodo').textContent = todo.length;
+        if (document.getElementById('countProgress')) document.getElementById('countProgress').textContent = progress.length;
+        if (document.getElementById('countReview')) document.getElementById('countReview').textContent = review.length;
+        if (document.getElementById('countDone')) document.getElementById('countDone').textContent = done.length;
+
+        if (this.kanbanTodo) this.populateKanbanColumn(this.kanbanTodo, todo); 
+        if (this.kanbanProgress) this.populateKanbanColumn(this.kanbanProgress, progress); 
+        if (this.kanbanReview) this.populateKanbanColumn(this.kanbanReview, review); 
+        if (this.kanbanDone) this.populateKanbanColumn(this.kanbanDone, done);
     }
 
     viewTaskDetails(taskId) {
@@ -470,62 +391,43 @@ class App {
         if(this.detailStartDate) this.detailStartDate.textContent = task.startDate; 
         if(this.detailDeadline) this.detailDeadline.textContent = task.deadline;
 
-        if (this.detailOverdueBox) {
-            if (this.isOverdue(task)) { this.detailOverdueBox.innerHTML = 'ภารกิจนี้เลยกำหนดส่งความมั่นคง!'; this.detailOverdueBox.classList.remove('d-none'); }
-            else { this.detailOverdueBox.classList.add('d-none'); }
-        }
+        if (this.detailOverdueBox) { if (this.isOverdue(task)) { this.detailOverdueBox.innerHTML = 'ภารกิจนี้เลยกำหนดส่งความมั่นคง!'; this.detailOverdueBox.classList.remove('d-none'); } else { this.detailOverdueBox.classList.add('d-none'); } }
 
         this.renderDetailModalFooter(task);
 
-        // 📋 วาดและแสดง Checkbox กิจย่อยทั้งหมดให้กดเลือกติ๊กสิทธิ์ได้กลางจอ
         const subTasksContainer = document.getElementById('detailSubTaskListContainer');
         const subTaskPctText = document.getElementById('detailSubTaskPercentage');
         const subTaskBar = document.getElementById('detailSubTaskProgressBar');
 
         if (subTasksContainer && subTaskPctText && subTaskBar) {
-            const progress = this.getTaskProgress(task);
-            subTaskPctText.textContent = `${progress}%`;
-            subTaskBar.style.width = `${progress}%`;
-            
+            const progress = this.getTaskProgress(task); subTaskPctText.textContent = `${progress}%`; subTaskBar.style.width = `${progress}%`;
             subTasksContainer.innerHTML = '';
-            if (!task.subTasks || task.subTasks.length === 0) {
-                subTasksContainer.innerHTML = '<span style="color: #64748b; font-size: 13px; font-style: italic;">ภารกิจนี้ไม่มีการแบ่งกิจย่อยไว้</span>';
-            } else {
+            if (!task.subTasks || task.subTasks.length === 0) { subTasksContainer.innerHTML = '<span style="color: #64748b; font-size: 13px; font-style: italic;">ภารกิจนี้ไม่มีการแบ่งกิจย่อยไว้</span>'; } else {
                 task.subTasks.forEach((sub) => {
-                    const item = document.createElement('label');
-                    item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
+                    const item = document.createElement('label'); item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
                     const textStyle = sub.isDone ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc; font-weight: 500;';
                     item.innerHTML = `
                         <input type="checkbox" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer;" ${sub.isDone ? 'checked' : ''} onchange="app.toggleSubTaskStatus('${task.id}', '${sub.id}', this.checked)">
                         <span style="${textStyle}">${sub.name}</span>
-                    `;
-                    subTasksContainer.appendChild(item);
+                    `; subTasksContainer.appendChild(item);
                 });
             }
         }
 
         if (task.hasAttachment && this.detailPdfItem && this.pdfButtonsContainer) {
             this.detailPdfItem.classList.remove('d-none'); this.pdfButtonsContainer.innerHTML = ''; 
-            let fileNamesList = [];
-            try { fileNamesList = JSON.parse(task.attachmentName); if (!Array.isArray(fileNamesList)) fileNamesList = [task.attachmentName]; } catch (e) { fileNamesList = [task.attachmentName]; }
+            let fileNamesList = []; try { fileNamesList = JSON.parse(task.attachmentName); if (!Array.isArray(fileNamesList)) fileNamesList = [task.attachmentName]; } catch (e) { fileNamesList = [task.attachmentName]; }
             fileNamesList.forEach((fName, index) => {
-                const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn btn-secondary';
-                btn.style = 'padding: 6px 10px; font-size: 11px; font-weight: 600; text-align: left; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 5px;';
-                btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`;
+                const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn btn-secondary'; btn.style = 'padding: 6px 10px; font-size: 11px; font-weight: 600; text-align: left; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 5px;'; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`;
                 btn.addEventListener('click', async () => {
                     if (this.isCloudMode) { const kvKey = fileNamesList.length === 1 ? task.id : `${task.id}_${index}`; window.open(`/api/pdf?taskId=${kvKey}`, '_blank'); } else {
                         btn.disabled = true; btn.innerHTML = 'ดึงไฟล์...';
                         try {
                             const record = await this.attachments.getAttachment(task.id);
-                            if (record) {
-                                let fileDataToOpen = null;
-                                if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData; else if (record.fileData) fileDataToOpen = record.fileData;
-                                if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank');
-                            }
+                            if (record) { let fileDataToOpen = null; if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData; else if (record.fileData) fileDataToOpen = record.fileData; if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); }
                         } catch (err) {} finally { btn.disabled = false; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`; }
                     }
-                });
-                this.pdfButtonsContainer.appendChild(btn);
+                }); this.pdfButtonsContainer.appendChild(btn);
             });
         } else { if(this.detailPdfItem) this.detailPdfItem.classList.add('d-none'); }
 
@@ -534,10 +436,7 @@ class App {
             historyLogContainer.innerHTML = '';
             if (task.history && task.history.length > 0) {
                 const sortedHistory = [...task.history].sort((a, b) => new Date(b.time) - new Date(a.time));
-                sortedHistory.forEach(log => {
-                    const timeStr = new Date(log.time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
-                    historyLogContainer.innerHTML += `<div>⏱️ ${timeStr} - <b>${log.user}</b>: ${log.action}</div>`;
-                });
+                sortedHistory.forEach(log => { const timeStr = new Date(log.time).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }); historyLogContainer.innerHTML += `<div>⏱️ ${timeStr} - <b>${log.user}</b>: ${log.action}</div>`; });
             } else { historyLogContainer.innerHTML = '<i>ยังไม่มีประวัติ</i>'; }
         }
     }
@@ -547,9 +446,7 @@ class App {
         if (allTasks.length === 1) { this.viewTaskDetails(allTasks[0].id); return; }
         if(this.detailTitle) this.detailTitle.textContent = `[กลุ่มภารกิจร่วมห้วงเวลาเดียวกัน]`; 
         if(this.detailDescription) {
-            let compiledDesc = '';
-            allTasks.forEach((task, index) => { compiledDesc += `📌 [${index + 1}] ${task.name}\n📝 รายละเอียด: ${task.description || 'ไม่มี'}\n🚦 สถานะ: ${task.status}\n-----------------------------------\n\n`; });
-            this.detailDescription.textContent = compiledDesc;
+            let compiledDesc = ''; allTasks.forEach((task, index) => { compiledDesc += `📌 [${index + 1}] ${task.name}\n📝 รายละเอียด: ${task.description || 'ไม่มี'}\n🚦 สถานะ: ${task.status}\n-----------------------------------\n\n`; }); this.detailDescription.textContent = compiledDesc;
         }
         if(this.detailSecrecyBadge) { this.detailSecrecyBadge.textContent = "แผนงานร่วม"; this.detailSecrecyBadge.className = 'detail-secrecy-badge secrecy-normal'; }
         if(this.detailAssigneeAvatar) this.detailAssigneeAvatar.src = 'https://img.icons8.com/color/96/group.png'; 
@@ -560,38 +457,121 @@ class App {
         if(this.detailStartDate) this.detailStartDate.textContent = allTasks[0].startDate; 
         if(this.detailDeadline) this.detailDeadline.textContent = allTasks[0].deadline;
 
-        // ซ่อนรายการ Checklist เมื่อเปิดหน้าจอดูกลุ่มงานมัดรวม
         const subTasksContainer = document.getElementById('detailSubTaskListContainer');
         if (subTasksContainer) subTasksContainer.innerHTML = '<span style="color: var(--text-muted); font-size:13px; font-style:italic;">กรุณาเปิดตรวจสอบกิจย่อยผ่านกระดานปฏิบัติการทางยุทธการรายบุคคลครับ</span>';
-
         if(this.detailModalFooter) { this.detailModalFooter.innerHTML = ''; const btnClose = document.createElement('button'); btnClose.className = 'btn btn-secondary'; btnClose.style.width = '100%'; btnClose.innerHTML = 'ปิดหน้าต่าง'; btnClose.addEventListener('click', () => this.closeDetailModal()); this.detailModalFooter.appendChild(btnClose); }
         if(this.taskDetailModal) this.taskDetailModal.classList.add('show');
     }
 
-    startClock() { const liveTimeEl = document.getElementById('liveTime'); const updateTime = () => { if (liveTimeEl) liveTimeEl.textContent = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }; updateTime(); setInterval(updateTime, 1000); }
-    render() { this.populateRoleSwitcher(); this.populateAssigneeDropdowns(); if (this.currentView === 'leader-dashboard') this.renderLeaderDashboard(); else if (this.currentView === 'staff-kanban') this.renderStaffKanban(); }
-    saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks })); }
-    getRawRankWeight(name) { if (!name) return 500; if (name.startsWith('พ.ท.')) return 10; if (name.startsWith('พ.ต.')) return 20; if (name.startsWith('ร.อ.')) return 30; if (name.startsWith('ร.ท.')) return 40; if (name.startsWith('ร.ต.')) return 50; return 500; }
-    getUrgencyBadge(urgency) { return `<span class="urgency-badge">${urgency}</span>`; }
-    getSecrecyBadge(secrecy) { return `<span class="secrecy-badge">${secrecy}</span>`; }
-    getStatusBadge(status) { return `<span class="status-badge">${status}</span>`; }
+    ensureAdminStaff() {
+        if (!this.staff || !Array.isArray(this.staff)) this.staff = [];
+        if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
+        if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
+        if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
+    }
+
+    openCreateTaskModal() {
+        if (!this.taskModal) return; this.taskForm.reset(); this.taskModalTitle.innerHTML = 'มอบหมายภารกิจยุทธการใหม่'; this.taskIdField.value = '';
+        this.tempSubTasks = []; this.renderSubTaskListInModal();
+        const today = new Date().toISOString().split('T')[0]; this.taskReceiveDateInput.value = today; this.taskStartDateInput.value = today; this.taskDeadlineInput.value = today;
+        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
+        if (isAdmin) { this.taskAssigneeInput.value = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3')[0]?.id || ''; this.taskAssigneeInput.disabled = false; } else { this.taskAssigneeInput.value = this.currentUser; this.taskAssigneeInput.disabled = true; }
+        this.taskStatusInput.value = 'รอดำเนินการ'; this.taskStatusInput.disabled = false;
+        if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid'; if(this.taskPdfInput) this.taskPdfInput.value = ''; if(this.pdfUploadStatus) this.pdfUploadStatus.textContent = 'ไม่มีไฟล์ที่แนบไว้';
+        this.taskModal.classList.add('show');
+    }
+
+    openEditTaskModal(taskId) {
+        if (!this.taskModal) return; const task = this.tasks.find(t => t.id === taskId); if (!task) return;
+        this.taskModalTitle.innerHTML = 'แก้ไขข้อมูลยุทธการ'; this.taskIdField.value = task.id; this.taskNameInput.value = task.name; this.taskDescriptionInput.value = task.description; this.taskAssigneeInput.value = task.assigneeId; this.taskStatusInput.value = task.status; this.taskUrgencyInput.value = task.urgency; this.taskSecrecyInput.value = task.secrecy; this.taskReceiveDateInput.value = task.receiveDate || task.startDate; this.taskStartDateInput.value = task.startDate; this.taskDeadlineInput.value = task.deadline;
+        this.tempSubTasks = task.subTasks ? JSON.parse(JSON.stringify(task.subTasks)) : []; this.renderSubTaskListInModal();
+        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith'); this.taskAssigneeInput.disabled = !isAdmin; this.taskStatusInput.disabled = false;
+        if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid';
+        let fNames = ''; if(task.hasAttachment && task.attachmentName) { try { const arr = JSON.parse(task.attachmentName); fNames = Array.isArray(arr) ? arr.join(', ') : task.attachmentName; } catch(e) { fNames = task.attachmentName; } if(this.pdfUploadStatus) this.pdfUploadStatus.textContent = `ไฟล์แนบปัจจุบัน: ${fNames}`; } else { if(this.pdfUploadStatus) this.pdfUploadStatus.textContent = 'ยังไม่มีไฟล์แนบ'; }
+        if(this.taskPdfInput) this.taskPdfInput.value = ''; this.taskModal.classList.add('show');
+    }
+
+    async submitTaskForm() {
+        const id = this.taskIdField.value; const name = this.taskNameInput.value.trim(); const description = this.taskDescriptionInput.value.trim(); const assigneeId = this.taskAssigneeInput.value; const status = this.taskStatusInput.value; const urgency = this.taskUrgencyInput.value; const secrecy = this.taskSecrecyInput.value; const receiveDate = this.taskReceiveDateInput.value; const startDate = this.taskStartDateInput.value; const deadline = this.taskDeadlineInput.value;
+        if (new Date(startDate) < new Date(receiveDate)) { alert('ข้อผิดพลาด: วันที่เริ่มปฏิบัติงาน ต้องไม่ก่อนวันที่เอกสารเข้า'); return; } if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง ต้องไม่ก่อนวันเริ่มต้นปฏิบัติงาน'); return; }
+        const now = new Date(); const logUser = this.currentUserName.textContent; let finalTaskId = id; let taskObj = null; let lineAlertMessage = '';
+        if (id) {
+            taskObj = this.tasks.find(t => t.id === id);
+            if (taskObj) {
+                const changes = []; if (taskObj.name !== name) changes.push(`หัวข้อ`); if (taskObj.assigneeId !== assigneeId) changes.push(`ผู้รับผิดชอบ`); if (taskObj.status !== status) changes.push(`สถานะ`); taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status; taskObj.urgency = urgency; taskObj.secrecy = secrecy; taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline; taskObj.subTasks = [...this.tempSubTasks];
+                if (!taskObj.history) taskObj.history = []; if (changes.length > 0) { taskObj.history.push({ time: now.toISOString(), action: `แก้ไข: ${changes.join(', ')}`, user: logUser }); lineAlertMessage = `อัปเดตข้อมูล: ${changes.join(', ')}`; }
+            }
+        } else {
+            finalTaskId = `task-${Date.now()}`; taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, subTasks: [...this.tempSubTasks], history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้น`, user: logUser }] }; this.tasks.push(taskObj); lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
+        }
+        if (taskObj && this.taskPdfInput && this.taskPdfInput.files.length > 0) {
+            const files = this.taskPdfInput.files; const fileNamesArray = Array.from(files).map(f => f.name); this.btnSubmitTaskModal.disabled = true; this.btnSubmitTaskModal.innerHTML = 'อัปโหลดไฟล์...';
+            if (this.isCloudMode) {
+                try {
+                    for (let i = 0; i < files.length; i++) { const file = files[i]; const base64Data = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(file); }); const kvKey = files.length === 1 ? finalTaskId : `${finalTaskId}_${i}`; const pdfRes = await fetch('/api/pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: kvKey, fileName: file.name, fileType: file.type, fileData: base64Data }) }); if (!pdfRes.ok) throw new Error("Cloud upload fail"); }
+                    taskObj.hasAttachment = true; taskObj.attachmentName = JSON.stringify(fileNamesArray); if (!taskObj.history) taskObj.history = []; taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสาร ${files.length} ฉบับ`, user: logUser }); lineAlertMessage += ` (แนบเอกสาร ${files.length} ฉบับ)`;
+                } catch (err) { this.showToast('อัปโหลดไฟล์ไปคลาวด์ล้มเหลว', 'danger'); }
+            } else { try { await this.attachments.saveAttachment(finalTaskId, files); taskObj.hasAttachment = true; taskObj.attachmentName = JSON.stringify(fileNamesArray); if (!taskObj.history) taskObj.history = []; taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสาร ${files.length} ฉบับ`, user: logUser }); } catch (err) {} }
+            this.btnSubmitTaskModal.disabled = false; this.btnSubmitTaskModal.innerHTML = 'บันทึกภารกิจ';
+        }
+        if (lineAlertMessage !== '') this.sendLineAlert(taskObj, lineAlertMessage); this.saveData(); this.closeTaskModal();
+        if (this.isCloudMode) { try { await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskObj) }); } catch (err) {} }
+        if (this.calendarInstance) this.calendarInstance.refetchEvents(); this.switchView(this.currentView); this.showToast(id ? 'อัปเดตข้อมูลสำเร็จ' : 'มอบหมายงานสำเร็จ');
+    }
+
+    deleteTask(taskId) {
+        if (confirm('คุณแน่ใจหรือไม่ว่าต้องการยกเลิกและลบภารกิจนี้?')) {
+            this.tasks = this.tasks.filter(t => t.id !== taskId); this.attachments.deleteAttachment(taskId).catch(e => e); this.saveData();
+            if (this.isCloudMode) fetch(`/api/tasks?id=${taskId}`, { method: 'DELETE' }).catch(e => e);
+            if (this.calendarInstance) this.calendarInstance.refetchEvents(); this.switchView(this.currentView); this.showToast('ลบภารกิจเรียบร้อย', 'danger');
+        }
+    }
+
+    renderDetailModalFooter(task) {
+        if(!this.detailModalFooter) return; this.detailModalFooter.innerHTML = '';
+        if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith' || task.assigneeId === this.currentUser) {
+            if (task.status === 'รอการอนุมัติ' && (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith')) {
+                const btnReject = document.createElement('button'); btnReject.className = 'btn btn-secondary'; btnReject.innerHTML = 'ส่งกลับปรับปรุง'; btnReject.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'ส่งคืนแผนงานแก้ไข')); this.detailModalFooter.appendChild(btnReject);
+                const btnApprove = document.createElement('button'); btnApprove.className = 'btn btn-success'; btnApprove.innerHTML = 'ลงนามอนุมัติ'; btnApprove.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'เสร็จสิ้น', 'ลงนามอนุมัติ')); this.detailModalFooter.appendChild(btnApprove);
+            } else {
+                const btnEdit = document.createElement('button'); btnEdit.className = 'btn btn-primary'; btnEdit.innerHTML = 'แก้ไขภารกิจ'; btnEdit.addEventListener('click', () => { this.closeDetailModal(); this.openEditTaskModal(task.id); }); this.detailModalFooter.appendChild(btnEdit);
+                const btnDelete = document.createElement('button'); btnDelete.className = 'btn btn-danger'; btnDelete.innerHTML = 'ลบภารกิจ'; btnDelete.addEventListener('click', () => { this.closeDetailModal(); this.deleteTask(task.id); }); this.detailModalFooter.appendChild(btnDelete);
+            }
+        } else {
+            if (task.status === 'รอดำเนินการ') {
+                const btnStart = document.createElement('button'); btnStart.className = 'btn btn-primary'; btnStart.innerHTML = 'เริ่มปฏิบัติงาน'; btnStart.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'เริ่มลงมือปฏิบัติการ')); this.detailModalFooter.appendChild(btnStart);
+            } else if (task.status === 'กำลังทำ') {
+                const btnReview = document.createElement('button'); btnReview.className = 'btn btn-success'; btnReview.innerHTML = 'ส่งรายงาน'; btnReview.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'รอการอนุมัติ', 'ยื่นเสนอขออนุมัติ')); this.detailModalFooter.appendChild(btnReview);
+            }
+        }
+    }
+
+    addNewMember() {
+        const name = this.memberNameInput.value.trim(); const role = this.memberRoleInput.value.trim(); const avatar = this.selectedAvatarInput.value; if (!name || !role) return;
+        let memberData; if (this.editingStaffId) { const index = this.staff.findIndex(m => m.id === this.editingStaffId); if (index !== -1) { this.staff[index].name = name; this.staff[index].role = role; this.staff[index].avatar = avatar; memberData = this.staff[index]; } } else { memberData = { id: `staff-${Date.now()}`, name, role, avatar, lineUserId: '' }; this.staff.push(memberData); }
+        this.saveData(); if (this.isCloudMode && memberData) fetch('/api/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(memberData) }).catch(err => err);
+        this.resetMemberForm(); this.populateRoleSwitcher(); this.populateAssigneeDropdowns(); this.renderTeamMembers(); this.showToast(`บันทึกข้อมูลกำลังพลสำเร็จ`);
+    }
+
+    removeMember(memberId) {
+        const member = this.staff.find(m => m.id === memberId); if (!member) return; const activeTasks = this.tasks.filter(t => t.assigneeId === memberId && t.status !== 'เสร็จสิ้น'); if (activeTasks.length > 0) { alert(`ไม่สามารถลบได้! มีภารกิจค้างอยู่`); return; }
+        if (confirm(`ต้องการลบกำลังพลใช่หรือไม่?`)) { this.tasks.forEach(t => { if (t.assigneeId === memberId) t.assigneeId = 'deleted'; }); this.staff = this.staff.filter(m => m.id !== memberId); if (this.isCloudMode) fetch(`/api/staff?id=${memberId}`, { method: 'DELETE' }); this.saveData(); this.populateRoleSwitcher(); this.populateAssigneeDropdowns(); this.renderTeamMembers(); this.showToast(`ลบกำลังพลสำเร็จ`, 'warning'); }
+    }
+    editMember(memberId) { const member = this.staff.find(m => m.id === memberId); if (!member) return; this.editingStaffId = memberId; this.memberNameInput.value = member.name; this.memberRoleInput.value = member.role; this.selectedAvatarInput.value = member.avatar; this.addMemberForm.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+    resetMemberForm() { this.editingStaffId = null; this.memberNameInput.value = ''; this.memberRoleInput.value = ''; }
+    
+    getUrgencyBadge(urgency) { let badgeClass = 'urgency-normal'; if (urgency === 'ด่วน') badgeClass = 'urgency-urgent'; if (urgency === 'ด่วนมาก') badgeClass = 'urgency-v-urgent'; if (urgency === 'ด่วนที่สุด') badgeClass = 'urgency-most-urgent'; return `<span class="urgency-badge ${badgeClass}">${urgency}</span>`; }
+    getSecrecyBadge(secrecy) { let badgeClass = 'secrecy-normal'; if (secrecy === 'ลับ') badgeClass = 'secrecy-confidential'; if (secrecy === 'ลับมาก') badgeClass = 'secrecy-secret'; if (secrecy === 'ลับที่สุด') badgeClass = 'secrecy-top-secret'; return `<span class="secrecy-badge ${badgeClass}">${secrecy}</span>`; }
+    getStatusBadge(status) { let badgeClass = 'badge-todo'; if (status === 'กำลังทำ') badgeClass = 'badge-progress'; if (status === 'รอการอนุมัติ') badgeClass = 'badge-review'; if (status === 'เสร็จสิ้น') badgeClass = 'badge-done'; return `<span class="status-badge ${badgeClass}">${status}</span>`; }
     closeTaskModal() { if(this.taskModal) this.taskModal.classList.remove('show'); }
     closeDetailModal() { if(this.taskDetailModal) this.taskDetailModal.classList.remove('show'); }
     handleDragOver(e) { e.preventDefault(); }
     handleDragEnter(e, column) { e.preventDefault(); }
     handleDragLeave(e, column) {}
-    handleDrop(e, column) {
-        e.preventDefault(); const taskId = e.dataTransfer.getData('text/plain') || this.draggedCardId; if (!taskId) return;
-        const task = this.tasks.find(t => t.id === taskId); const newStatus = column.getAttribute('data-status');
-        if (task && task.status !== newStatus) {
-            task.status = newStatus; this.saveData(); this.renderStaffKanban();
-            if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) });
-        }
-    }
+    handleDrop(e, column) { e.preventDefault(); const taskId = e.dataTransfer.getData('text/plain') || this.draggedCardId; if (!taskId) return; const task = this.tasks.find(t => t.id === taskId); const newStatus = column.getAttribute('data-status'); if (task && task.status !== newStatus) { task.status = newStatus; this.saveData(); this.renderStaffKanban(); if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }); } }
     handleDragStart(e, taskId) { this.draggedCardId = taskId; e.dataTransfer.setData('text/plain', taskId); }
     handleDragEnd(card) { this.draggedCardId = null; }
     renderTeamProgressTable() { if(this.teamProgressTableBody) this.teamProgressTableBody.innerHTML='<tr><td colspan="7">กำลังแสดงผลในส่วนสลับผู้ใช้บนโมบายล์</td></tr>'; }
 }
 
-let app;
-document.addEventListener('DOMContentLoaded', () => { try { app = new App(); } catch (err) { console.error(err); } });
+document.addEventListener('DOMContentLoaded', () => { try { app = new App(); } catch (err) { alert("ระบบขัดข้อง: " + err.message); } });
