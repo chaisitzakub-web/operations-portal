@@ -46,18 +46,19 @@
             color: #000000 !important; 
             border-radius: 8px; 
             overflow: hidden; /* ห้ามคอนเทนเนอร์เลื่อนทะลุ */
+            box-sizing: border-box !important;
         }
         
         /* บังคับตารางปฏิทินให้พอดีขอบ ห้ามขยายเกินจอ 100% */
         .fc { width: 100% !important; max-width: 100% !important; }
-        .fc .fc-scrollgrid { border-collapse: collapse !important; border-left-width: 0 !important; border-right-width: 0 !important; width: 100% !important; table-layout: fixed !important; }
-        .fc .fc-view-harness { max-width: 100% !important; overflow: hidden !important; }
-        .fc-scrollgrid-sync-table { width: 100% !important; table-layout: fixed !important; } /* ล็อกช่องทุกวันให้เท่ากัน */
+        .fc-scrollgrid, .fc-scrollgrid table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
+        .fc-view-harness { width: 100% !important; max-width: 100% !important; overflow: hidden !important; }
+        .fc-scrollgrid-sync-table { width: 100% !important; table-layout: fixed !important; } 
         
         /* 🎯 พระเอกงานนี้: จัดตำแหน่งตัวเลขวันที่ให้อยู่ตรงกลางช่อง ห้ามตกขอบ */
         .fc-daygrid-day-top { 
             display: flex !important; 
-            justify-content: center !important; /* จัดให้อยู่ตรงกลางเสมอ */
+            justify-content: center !important; 
             flex-direction: row !important;
             width: 100% !important; 
             margin-top: 2px !important;
@@ -69,7 +70,7 @@
             text-decoration: none !important; 
             padding: 4px !important;
             width: 100% !important;
-            text-align: center !important; /* บังคับตัวหนังสือกลางช่อง */
+            text-align: center !important; 
         }
 
         /* จัดแต่งป้ายภารกิจที่อยู่ในปฏิทิน (ให้ตัดคำถ้ามันยาวไป) */
@@ -79,17 +80,17 @@
 
         /* 📱 ปรับ UI ให้สมดุลระหว่างมือถือ และ iPad/คอมพิวเตอร์ */
         @media (max-width: 768px) {
-            .fc-event-title { font-size: 9px !important; line-height: 1.1 !important; }
-            .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 700 !important; }
+            .fc-event-title { font-size: 8.5px !important; line-height: 1.1 !important; padding: 1px !important; }
+            .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 700 !important; padding: 4px 1px !important; }
             .fc-daygrid-day-number { font-size: 11px !important; padding: 2px !important; } 
             
             /* เมนูปฏิทินแนวตั้งสำหรับมือถือ ห้ามตกขอบ */
-            .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; }
-            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap; gap: 4px; }
+            .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; width: 100% !important; }
+            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap !important; gap: 4px; }
             .fc .fc-toolbar-title { font-size: 1.1em !important; text-align: center !important; width: 100%; margin-bottom: 4px; }
-            .fc .fc-button { padding: 5px 10px !important; font-size: 11px !important; margin: 0 2px !important; }
+            .fc .fc-button { padding: 5px 10px !important; font-size: 11px !important; margin: 2px !important; }
             
-            #viewTeamCalendar .glass-card { padding: 8px !important; }
+            #viewTeamCalendar .glass-card { padding: 6px !important; overflow: hidden !important; }
         }
 
         @media (min-width: 769px) {
@@ -278,6 +279,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=500"></script>
+    <script src="app.js?v=600"></script>
 </body>
 </html>
