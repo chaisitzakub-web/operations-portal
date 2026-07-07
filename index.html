@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* 🚫 สีทึบ 100% อ่านง่ายสบายตา */
         .glass-card, .modal, .kanban-card, .metric-card, .chart-container, .table-container, 
         .form-container, .team-cards-container, .staff-header-profile, .detail-meta-info,
         #eventDescription, #mobileStaffProgressDisplay, .modal-backdrop {
@@ -38,83 +37,45 @@
         .form-control { background-color: #0f172a !important; color: #f8fafc !important; border: 1px solid #475569 !important; }
         body.light-theme .form-control { background-color: #f1f5f9 !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; }
 
-        /* 🛡️ ระบบปฏิทิน: คืนค่าธรรมชาติ ลดความขัดแย้งของ CSS */
-        #fullCalendarContainer { 
-            width: 100%; 
-            background: #ffffff !important; 
-            color: #000000 !important; 
-            border-radius: 8px; 
-            overflow: hidden; 
-        }
+        #fullCalendarContainer { width: 100%; max-width: 100%; background: #ffffff !important; color: #000000 !important; border-radius: 8px; overflow: hidden; }
+        .fc { width: 100% !important; max-width: 100% !important; }
+        .fc .fc-scrollgrid { border-collapse: collapse !important; border-left-width: 0 !important; border-right-width: 0 !important; width: 100% !important; table-layout: fixed !important; }
+        .fc .fc-view-harness { max-width: 100% !important; overflow: hidden !important; }
+        .fc-scrollgrid-sync-table { width: 100% !important; table-layout: fixed !important; }
+        
+        .fc-daygrid-day-top { display: flex !important; justify-content: center !important; flex-direction: row !important; width: 100% !important; margin-top: 2px !important; }
+        .fc-daygrid-day-number { font-size: 13px !important; font-weight: 700 !important; color: #1e293b !important; text-decoration: none !important; padding: 4px !important; width: 100% !important; text-align: center !important; }
+        .fc-event-title { white-space: normal !important; line-height: 1.2 !important; font-weight: 500 !important; word-wrap: break-word !important; text-align: center !important; overflow: hidden !important; }
+        .fc-daygrid-event { white-space: normal !important; padding: 2px !important; margin: 1px !important; border-radius: 4px !important; }
+        .fc-col-header-cell-cushion { padding: 6px 2px !important; text-decoration: none !important; color: #1e293b !important; display: block !important; text-align: center !important; }
 
-        /* 📱 ปรับ UI ให้สมดุลระหว่างมือถือ และ iPad/คอมพิวเตอร์ */
         @media (max-width: 768px) {
-            /* 🟢 1. ซ่อนตารางสถิติกำลังพลตัวเต็มบนมือถือ (โชว์แค่ Dropdown) */
             #teamProgressTable { display: none !important; }
             #viewLeaderDashboard .table-header { display: none !important; }
+            .table-responsive { overflow-x: auto !important; -webkit-overflow-scrolling: touch; padding-bottom: 10px; }
+            .data-table { min-width: 800px !important; }
+            .data-table th, .data-table td { white-space: nowrap !important; }
+            .data-table td:first-child { white-space: normal !important; min-width: 250px !important; }
 
-            /* 🟢 2. แก้อาการตารางภารกิจบีบตัวอักษรจนตกบรรทัด (ให้ใช้นิ้วปัดเลื่อนซ้าย-ขวาแทน) */
-            .table-responsive { 
-                overflow-x: auto !important; 
-                -webkit-overflow-scrolling: touch; 
-                padding-bottom: 10px;
-                width: 100%;
-            }
-            .data-table { 
-                min-width: 800px !important; /* บังคับให้ตารางกว้างคงที่ เพื่อเปิดใช้ scroll */
-            }
-            .data-table th, .data-table td { 
-                white-space: nowrap !important; /* ห้ามตัดบรรทัดเด็ดขาด */
-            }
-            .data-table td:first-child { 
-                white-space: normal !important; /* ยกเว้นชื่องานให้ตัดบรรทัดได้ แต่วางความกว้างขั้นต่ำไว้ */
-                min-width: 250px !important; 
-            }
-
-            /* 🟢 3. แก้ไขป๊อปอัปรายละเอียด ให้ข้อมูลเรียงลงล่าง ไม่บีบตัวอักษร */
-            .detail-grid {
-                display: flex !important;
-                flex-direction: column !important; /* บังคับเรียงบนลงล่าง */
-                gap: 15px !important;
-            }
-            .detail-main-info, .detail-meta-info {
-                width: 100% !important;
-                min-width: 100% !important;
-            }
-            .meta-item {
-                display: flex !important;
-                flex-direction: column !important; /* แยกบรรทัดหัวข้อและข้อมูล */
-                align-items: flex-start !important;
-                gap: 4px !important;
-                margin-bottom: 10px !important;
-            }
-            .meta-label { font-size: 13px !important; color: #94a3b8 !important; }
-            .meta-value, .meta-value-user { font-size: 14px !important; font-weight: 500 !important; }
-
-            /* ปฏิทินบนมือถือ: ปล่อยตารางเลื่อนได้ ลดขนาดฟอนต์แทน */
             .fc-event-title { font-size: 9px !important; line-height: 1.1 !important; }
             .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 700 !important; }
             .fc-daygrid-day-number { font-size: 11px !important; padding: 2px !important; } 
             
-            .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; width: 100% !important; }
-            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap !important; gap: 4px; }
+            .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; }
+            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap; gap: 4px; }
             .fc .fc-toolbar-title { font-size: 1.1em !important; text-align: center !important; width: 100%; margin-bottom: 4px; }
-            .fc .fc-button { padding: 5px 10px !important; font-size: 11px !important; margin: 2px !important; }
+            .fc .fc-button { padding: 5px 10px !important; font-size: 11px !important; margin: 0 2px !important; }
             
             #viewTeamCalendar .glass-card { padding: 8px !important; }
-            /* ปล่อยให้ปฏิทินเลื่อนซ้ายขวาได้หากจอแคบมาก จะได้ไม่ดันตกขอบ */
-            .fc-view-harness { overflow-x: auto !important; }
         }
 
         @media (min-width: 769px) {
-            /* 🟢 ซ่อน Dropdown เช็คชื่อบนหน้าจอคอมพิวเตอร์ (ให้โชว์แต่ตารางตัวเต็มอย่างเดียว) */
             .mobile-staff-progress-box { display: none !important; }
-
             .fc-event-title { font-size: 11.5px !important; }
-            .fc-col-header-cell-cushion { font-size: 14px !important; font-weight: 600 !important; padding: 8px !important; }
+            .fc-col-header-cell-cushion { font-size: 13px !important; font-weight: 600 !important; }
             .fc-header-toolbar { display: flex !important; flex-direction: row !important; justify-content: space-between !important; margin-bottom: 1.5em !important; }
-            .fc .fc-toolbar-title { font-size: 1.5em !important; }
-            .fc .fc-button { padding: 8px 16px !important; font-size: 13px !important; }
+            .fc .fc-toolbar-title { font-size: 1.3em !important; }
+            .fc .fc-button { padding: 6px 12px !important; font-size: 13px !important; }
         }
     </style>
 </head>
@@ -280,13 +241,54 @@
         </main>
     </div>
 
-    <div class="modal-backdrop" id="taskModal"><div class="modal glass-card"><div class="modal-header"><h3 class="modal-title" id="taskModalTitle">มอบหมายภารกิจ</h3><button type="button" class="modal-close-btn" id="taskModalCloseBtn"><i class="fas fa-times"></i></button></div><form id="taskForm"><input type="hidden" id="taskIdField"><div class="modal-body"><div class="form-group"><label for="taskName"><span class="required">*</span> ชื่องาน / แผนยุทธการ</label><input type="text" id="taskName" class="form-control" required placeholder="ระบุหัวข้อ..."></div><div class="form-group"><label for="taskDescription">รายละเอียดการปฏิบัติงาน</label><textarea id="taskDescription" class="form-control text-area" rows="3"></textarea></div><div class="form-row"><div class="form-group"><label for="taskAssignee"><span class="required">*</span> ผู้รับผิดชอบ</label><select id="taskAssignee" class="form-control" required></select></div><div class="form-group"><label for="taskStatus"><span class="required">*</span> สถานะงาน</label><select id="taskStatus" class="form-control" required><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option></select></div></div><div class="form-row"><div class="form-group"><label for="taskUrgency"><span class="required">*</span> ความเร่งด่วน</label><select id="taskUrgency" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div><div class="form-group"><label for="taskSecrecy"><span class="required">*</span> ชั้นความลับ</label><select id="taskSecrecy" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div></div><div class="form-row"> <div class="form-group"><label for="taskReceiveDate"><span class="required">*</span> เอกสารเข้า</label><input type="date" id="taskReceiveDate" class="form-control" required></div> <div class="form-group"><label for="taskStartDate"><span class="required">*</span> วันที่เริ่ม</label><input type="date" id="taskStartDate" class="form-control" required></div> <div class="form-group"><label for="taskDeadline"><span class="required">*</span> กำหนดส่ง</label><input type="date" id="taskDeadline" class="form-control" required></div> </div><div class="form-group" style="margin-top: 15px; border-top: 1px dashed #475569; padding-top: 15px;"><label style="font-weight: 600; color: var(--text-primary);">📋 เพิ่มกิจย่อย (Checklist)</label><div style="display: flex; gap: 8px; margin-bottom: 10px;"><input type="text" id="inputSubTaskName" class="form-control" placeholder="พิมพ์ชื่อกิจย่อย..."><button type="button" class="btn btn-primary" id="btnAddSubTask"><i class="fas fa-plus"></i></button></div><div id="subTaskListContainer" style="max-height:120px; overflow-y:auto;"></div></div><div class="form-row" id="pdfUploadRow"><div class="form-group col-12"><label for="taskPdf"><i class="fas fa-file-pdf text-danger"></i> แนบเอกสารยุทธการ (PDF/รูปภาพ)</label><input type="file" id="taskPdf" class="form-control" accept=".pdf,image/*" multiple><small class="text-muted" id="pdfUploadStatus">ไม่มีไฟล์แนบ</small></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" id="btnCancelTaskModal">ยกเลิก</button><button type="submit" class="btn btn-primary" id="btnSubmitTaskModal">บันทึกภารกิจ</button></div></form></div></div>
+    <!-- Modal สร้างและแก้ไขงาน -->
+    <div class="modal-backdrop" id="taskModal">
+        <div class="modal glass-card">
+            <div class="modal-header"><h3 class="modal-title" id="taskModalTitle">มอบหมายภารกิจ</h3><button type="button" class="modal-close-btn" id="taskModalCloseBtn"><i class="fas fa-times"></i></button></div>
+            <form id="taskForm">
+                <input type="hidden" id="taskIdField">
+                <div class="modal-body">
+                    <div class="form-group"><label for="taskName"><span class="required">*</span> ชื่องาน / แผนยุทธการ</label><input type="text" id="taskName" class="form-control" required placeholder="ระบุหัวข้อ..."></div>
+                    <div class="form-group"><label for="taskDescription">รายละเอียดการปฏิบัติงาน</label><textarea id="taskDescription" class="form-control text-area" rows="3"></textarea></div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="taskAssignee"><span class="required">*</span> ผู้รับผิดชอบ</label><select id="taskAssignee" class="form-control" required></select></div>
+                        <div class="form-group"><label for="taskStatus"><span class="required">*</span> สถานะงาน</label><select id="taskStatus" class="form-control" required><option value="รอดำเนินการ">รอดำเนินการ</option><option value="กำลังทำ">กำลังทำ</option><option value="รอการอนุมัติ">รอการอนุมัติ</option><option value="เสร็จสิ้น">เสร็จสิ้น</option></select></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label for="taskUrgency"><span class="required">*</span> ความเร่งด่วน</label><select id="taskUrgency" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div>
+                        <div class="form-group"><label for="taskSecrecy"><span class="required">*</span> ชั้นความลับ</label><select id="taskSecrecy" class="form-control" required><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div>
+                    </div>
+                    <div class="form-row"> 
+                        <div class="form-group"><label for="taskReceiveDate"><span class="required">*</span> เอกสารเข้า</label><input type="date" id="taskReceiveDate" class="form-control" required></div> 
+                        <div class="form-group"><label for="taskStartDate"><span class="required">*</span> วันที่เริ่ม</label><input type="date" id="taskStartDate" class="form-control" required></div> 
+                        <div class="form-group"><label for="taskDeadline"><span class="required">*</span> กำหนดส่ง</label><input type="date" id="taskDeadline" class="form-control" required></div> 
+                    </div>
+                    <div class="form-group" style="margin-top: 15px; border-top: 1px dashed #475569; padding-top: 15px;">
+                        <label style="font-weight: 600; color: var(--text-primary);">📋 เพิ่มกิจย่อย (Checklist)</label>
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px;"><input type="text" id="inputSubTaskName" class="form-control" placeholder="พิมพ์ชื่อกิจย่อย..."><button type="button" class="btn btn-primary" id="btnAddSubTask"><i class="fas fa-plus"></i></button></div>
+                        <div id="subTaskListContainer" style="max-height:120px; overflow-y:auto;"></div>
+                    </div>
+                    <div class="form-row" id="pdfUploadRow"><div class="form-group col-12"><label for="taskPdf"><i class="fas fa-file-pdf text-danger"></i> แนบเอกสารยุทธการ (PDF/รูปภาพ)</label><input type="file" id="taskPdf" class="form-control" accept=".pdf,image/*" multiple><small class="text-muted" id="pdfUploadStatus">ไม่มีไฟล์แนบ</small></div></div>
+                </div>
+                <!-- 🟢 อัปเดต: แถบปุ่มจัดการ (มีปุ่มลบอยู่มุมซ้าย) -->
+                <div class="modal-footer" style="display: flex; justify-content: space-between; width: 100%;">
+                    <div><button type="button" class="btn btn-danger d-none" id="btnDeleteTaskModal"><i class="fas fa-trash"></i> ลบ</button></div>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" id="btnCancelTaskModal">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitTaskModal">บันทึก</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
+    <!-- Modal ดูรายละเอียดงานจากในแอป -->
     <div class="modal-backdrop" id="taskDetailModal"><div class="modal modal-lg glass-card"><div class="modal-header"><div class="title-with-badge"><span class="detail-secrecy-badge" id="detailSecrecyBadge">ปกติ</span><h3 class="modal-title" id="detailTitle">รายละเอียดแผนงาน</h3></div><button type="button" class="modal-close-btn" id="taskDetailCloseBtn"><i class="fas fa-times"></i></button></div><div class="modal-body"><div class="detail-grid"><div class="detail-main-info"><div class="detail-section"><h4 class="detail-sec-title">รายละเอียดภารกิจ</h4><p class="detail-desc" id="detailDescription">ข้อมูลรายละเอียดงานยุทธการ...</p><div style="border-top: 1px dashed #475569; padding-top: 15px; margin-top: 15px;"><h4 class="detail-sec-title"><i class="fas fa-tasks"></i> ความคืบหน้าของกิจย่อย (<span id="detailSubTaskPercentage">0%</span>)</h4><div style="height: 10px; background: #0f172a; border-radius: 5px; overflow: hidden; width: 100%; margin-bottom: 12px;"><div id="detailSubTaskProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #10b981); transition: width 0.3s;"></div></div><div id="detailSubTaskListContainer"></div></div><div style="border-top: 1px dashed #475569; padding-top: 15px; margin-top: 15px;"><h5 style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">📜 ประวัติการบันทึกงาน:</h5><div id="detailHistoryLog" style="font-size:11px; color:var(--text-muted); max-height:80px; overflow-y:auto;"></div></div></div></div><div class="detail-meta-info glass-card"><h4 class="detail-sec-title"><i class="fas fa-circle-info"></i> ข้อมูลจำเพาะ</h4><div class="meta-item"><span class="meta-label">ผู้รับผิดชอบ:</span><div class="meta-value-user"><img id="detailAssigneeAvatar" src="" alt="Avatar" class="avatar-xs"><span id="detailAssigneeName">-</span></div></div><div class="meta-item"><span class="meta-label">สถานะปัจจุบัน:</span><span class="status-badge" id="detailStatusBadge">-</span></div><div class="meta-item"><span class="meta-label">ความเร่งด่วน:</span><span class="urgency-badge" id="detailUrgencyBadge">-</span></div><div class="meta-item"><span class="meta-label">วันที่เอกสารเข้า:</span><span class="meta-value" id="detailReceiveDate">-</span></div><div class="meta-item"><span class="meta-label">วันที่เริ่มงาน:</span><span class="meta-value" id="detailStartDate">-</span></div><div class="meta-item"><span class="meta-label">กำหนดส่ง:</span><span class="meta-value" id="detailDeadline">-</span></div><div class="meta-item text-danger" id="detailOverdueBox"></div><div class="meta-item d-none" id="detailPdfItem"><span class="meta-label">เอกสารแนบ:</span><div id="pdfButtonsContainer"></div></div></div></div></div><div class="modal-footer" id="detailModalFooter"></div></div></div>
 
+    <!-- Modal สำหรับเปิดรายละเอียดปฏิทินที่มาจาก Google Calendar -->
     <div class="modal-backdrop" id="eventModal">
         <div class="modal glass-card" style="max-width: 500px;">
-            <div class="modal-header"><h3 class="modal-title" style="font-size: 16px;"><i class="far fa-calendar-check"></i> รายละเอียดกิจกรรม (Google Calendar)</h3><button type="button" class="modal-close-btn" onclick="document.getElementById('eventModal').classList.remove('show')"><i class="fas fa-times"></i></button></div>
+            <div class="modal-header"><h3 class="modal-title" style="font-size: 16px;"><i class="far fa-calendar-check"></i> รายละเอียดกิจกรรม (Google Calendar)</h3><button type="button" class="modal-close-btn" onclick="if(app) app.closeEventModal(); else document.getElementById('eventModal').classList.remove('show');"><i class="fas fa-times"></i></button></div>
             <div class="modal-body" style="color: var(--text-primary);"><h4 id="eventTitle" style="color:#3b82f6; margin-bottom:15px; font-size:18px; font-weight:700;">-</h4><p style="margin-bottom:10px; font-size:14px;"><strong>ระยะเวลา:</strong> <span id="eventTime">-</span></p><hr style="border-color:rgba(255,255,255,0.1); margin:15px 0;"><div id="eventDescription" style="padding:12px; border-radius:8px; min-height:80px; font-size:13px; white-space:pre-wrap;">ไม่มีรายละเอียด</div><div id="eventModalAttachmentsWrapper" class="d-none" style="margin-top:15px; border-top:1px dashed #475569; padding-top:10px;"><p style="margin-bottom:8px; font-size:14px;"><strong>ไฟล์แนบจาก Google Drive:</strong></p><div id="eventAttachmentsBox"></div></div></div>
             <div class="modal-footer"><a id="eventLinkBtn" href="#" target="_blank" class="btn btn-primary" style="width: 100%; text-align: center;"><i class="fas fa-external-link-alt"></i> เปิดเนื้อหาฉบับเต็มใน Google Calendar</a></div>
         </div>
@@ -295,6 +297,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=800"></script>
+    <script src="app.js?v=900"></script>
 </body>
 </html>
