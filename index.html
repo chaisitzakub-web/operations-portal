@@ -38,55 +38,66 @@
         .form-control { background-color: #0f172a !important; color: #f8fafc !important; border: 1px solid #475569 !important; }
         body.light-theme .form-control { background-color: #f1f5f9 !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; }
 
-        /* 🛡️ ระบบปฏิทินแก้ไข UI ตกขอบและจัดระเบียบให้เข้ารูป */
+        /* 🛡️ ระบบปฏิทิน: ล็อกตารางและจัดตัวเลขวันที่ไม่ให้ตกขอบ 100% */
         #fullCalendarContainer { 
             width: 100%; 
             max-width: 100%; 
             background: #ffffff !important; 
             color: #000000 !important; 
-            overflow: hidden; /* ป้องกันการเลื่อนแนวนอนถ้าไม่จำเป็น */
-            border-radius: 8px; /* เพิ่มขอบมนให้เนียนตาขึ้น */
+            border-radius: 8px; 
+            overflow: hidden; /* ห้ามคอนเทนเนอร์เลื่อนทะลุ */
         }
         
-        /* ปรับโครงสร้างตารางปฏิทินไม่ให้ทะลุออกไป */
-        .fc .fc-scrollgrid { border-collapse: collapse !important; border-left-width: 0 !important; border-right-width: 0 !important; }
-        .fc .fc-view-harness { max-width: 100%; overflow-x: auto; /* เพิ่มให้สามารถเลื่อนซ้ายขวาได้หากจอแคบมาก */ }
-        .fc-event-title { white-space: normal !important; line-height: 1.3 !important; font-weight: 500 !important; word-wrap: break-word; /* บังคับตัดคำถ้ามันยาวเกินไป */ }
-        .fc-daygrid-event { white-space: normal !important; align-items: start !important; padding: 2px 4px !important; margin-bottom: 2px !important; }
+        /* บังคับตารางปฏิทินให้พอดีขอบ ห้ามขยายเกินจอ 100% */
+        .fc { width: 100% !important; max-width: 100% !important; }
+        .fc .fc-scrollgrid { border-collapse: collapse !important; border-left-width: 0 !important; border-right-width: 0 !important; width: 100% !important; table-layout: fixed !important; }
+        .fc .fc-view-harness { max-width: 100% !important; overflow: hidden !important; }
+        .fc-scrollgrid-sync-table { width: 100% !important; table-layout: fixed !important; } /* ล็อกช่องทุกวันให้เท่ากัน */
         
-        /* ปรับแต่งส่วนหัวและช่องของแต่ละวัน */
-        .fc-scrollgrid-sync-table { width: 100% !important; }
-        .fc-col-header-cell-cushion { padding: 8px 4px !important; text-decoration: none !important; color: #1e293b !important; }
-        
+        /* 🎯 พระเอกงานนี้: จัดตำแหน่งตัวเลขวันที่ให้อยู่ตรงกลางช่อง ห้ามตกขอบ */
+        .fc-daygrid-day-top { 
+            display: flex !important; 
+            justify-content: center !important; /* จัดให้อยู่ตรงกลางเสมอ */
+            flex-direction: row !important;
+            width: 100% !important; 
+            margin-top: 2px !important;
+        }
+        .fc-daygrid-day-number { 
+            font-size: 13px !important; 
+            font-weight: 700 !important; 
+            color: #1e293b !important; 
+            text-decoration: none !important; 
+            padding: 4px !important;
+            width: 100% !important;
+            text-align: center !important; /* บังคับตัวหนังสือกลางช่อง */
+        }
+
+        /* จัดแต่งป้ายภารกิจที่อยู่ในปฏิทิน (ให้ตัดคำถ้ามันยาวไป) */
+        .fc-event-title { white-space: normal !important; line-height: 1.2 !important; font-weight: 500 !important; word-wrap: break-word !important; text-align: center !important; overflow: hidden !important; }
+        .fc-daygrid-event { white-space: normal !important; padding: 2px !important; margin: 1px !important; border-radius: 4px !important; }
+        .fc-col-header-cell-cushion { padding: 6px 2px !important; text-decoration: none !important; color: #1e293b !important; display: block !important; text-align: center !important; }
+
         /* 📱 ปรับ UI ให้สมดุลระหว่างมือถือ และ iPad/คอมพิวเตอร์ */
         @media (max-width: 768px) {
-            .fc-event-title { font-size: 9px !important; line-height: 1.2 !important; }
-            .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 600 !important; }
+            .fc-event-title { font-size: 9px !important; line-height: 1.1 !important; }
+            .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 700 !important; }
+            .fc-daygrid-day-number { font-size: 11px !important; padding: 2px !important; } 
             
-            /* บังคับเรียงเมนูปฏิทินเป็นแนวตั้ง เพื่อให้มีพื้นที่เหลือ */
-            .fc-header-toolbar { 
-                display: flex !important; 
-                flex-direction: column !important; 
-                gap: 8px !important; 
-                margin-bottom: 12px !important; 
-            }
-            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap; gap: 5px; }
-            .fc .fc-toolbar-title { font-size: 1em !important; text-align: center !important; width: 100%; margin-bottom: 5px; }
-            .fc .fc-button { padding: 4px 8px !important; font-size: 11px !important; height: auto !important; margin: 0 2px !important; }
+            /* เมนูปฏิทินแนวตั้งสำหรับมือถือ ห้ามตกขอบ */
+            .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; }
+            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap; gap: 4px; }
+            .fc .fc-toolbar-title { font-size: 1.1em !important; text-align: center !important; width: 100%; margin-bottom: 4px; }
+            .fc .fc-button { padding: 5px 10px !important; font-size: 11px !important; margin: 0 2px !important; }
             
-            /* ลดขนาดวันที่ในช่องตารางให้เล็กลงในมือถือ */
-            .fc-daygrid-day-number { font-size: 10px !important; padding: 2px !important; }
-            
-            /* ปรับกรอบนอกที่หุ้มปฏิทินให้เล็กลง */
             #viewTeamCalendar .glass-card { padding: 8px !important; }
         }
 
         @media (min-width: 769px) {
-            .fc-event-title { font-size: 11px !important; }
-            .fc-col-header-cell-cushion { font-size: 13px !important; font-weight: 600 !important; }
+            .fc-event-title { font-size: 11.5px !important; }
+            .fc-col-header-cell-cushion { font-size: 14px !important; font-weight: 600 !important; padding: 8px !important; }
             .fc-header-toolbar { display: flex !important; flex-direction: row !important; justify-content: space-between !important; margin-bottom: 1.5em !important; }
-            .fc .fc-toolbar-title { font-size: 1.3em !important; }
-            .fc .fc-button { padding: 6px 12px !important; font-size: 13px !important; }
+            .fc .fc-toolbar-title { font-size: 1.5em !important; }
+            .fc .fc-button { padding: 8px 16px !important; font-size: 13px !important; }
         }
     </style>
 </head>
@@ -267,6 +278,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=400"></script>
+    <script src="app.js?v=500"></script>
 </body>
 </html>
