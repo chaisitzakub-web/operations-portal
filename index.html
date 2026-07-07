@@ -38,41 +38,14 @@
         .form-control { background-color: #0f172a !important; color: #f8fafc !important; border: 1px solid #475569 !important; }
         body.light-theme .form-control { background-color: #f1f5f9 !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; }
 
-        /* 🛡️ ระบบปฏิทิน: ล็อกตารางและจัดตัวเลขวันที่ไม่ให้ตกขอบ 100% */
+        /* 🛡️ ระบบปฏิทิน: คืนค่าธรรมชาติ ลดความขัดแย้งของ CSS */
         #fullCalendarContainer { 
             width: 100%; 
-            max-width: 100%; 
             background: #ffffff !important; 
             color: #000000 !important; 
             border-radius: 8px; 
-            overflow: hidden;
+            overflow: hidden; 
         }
-        
-        .fc { width: 100% !important; max-width: 100% !important; }
-        .fc .fc-scrollgrid { border-collapse: collapse !important; border-left-width: 0 !important; border-right-width: 0 !important; width: 100% !important; table-layout: fixed !important; }
-        .fc .fc-view-harness { max-width: 100% !important; overflow: hidden !important; }
-        .fc-scrollgrid-sync-table { width: 100% !important; table-layout: fixed !important; }
-        
-        .fc-daygrid-day-top { 
-            display: flex !important; 
-            justify-content: center !important;
-            flex-direction: row !important;
-            width: 100% !important; 
-            margin-top: 2px !important;
-        }
-        .fc-daygrid-day-number { 
-            font-size: 13px !important; 
-            font-weight: 700 !important; 
-            color: #1e293b !important; 
-            text-decoration: none !important; 
-            padding: 4px !important;
-            width: 100% !important;
-            text-align: center !important; 
-        }
-
-        .fc-event-title { white-space: normal !important; line-height: 1.2 !important; font-weight: 500 !important; word-wrap: break-word !important; text-align: center !important; overflow: hidden !important; }
-        .fc-daygrid-event { white-space: normal !important; padding: 2px !important; margin: 1px !important; border-radius: 4px !important; }
-        .fc-col-header-cell-cushion { padding: 6px 2px !important; text-decoration: none !important; color: #1e293b !important; display: block !important; text-align: center !important; }
 
         /* 📱 ปรับ UI ให้สมดุลระหว่างมือถือ และ iPad/คอมพิวเตอร์ */
         @media (max-width: 768px) {
@@ -85,29 +58,52 @@
                 overflow-x: auto !important; 
                 -webkit-overflow-scrolling: touch; 
                 padding-bottom: 10px;
+                width: 100%;
             }
             .data-table { 
-                min-width: 800px !important; /* บังคับให้ตารางกว้างคงที่ ไม่บีบตัว */
+                min-width: 800px !important; /* บังคับให้ตารางกว้างคงที่ เพื่อเปิดใช้ scroll */
             }
             .data-table th, .data-table td { 
                 white-space: nowrap !important; /* ห้ามตัดบรรทัดเด็ดขาด */
             }
             .data-table td:first-child { 
-                white-space: normal !important; /* ยกเว้นชื่องานยอมให้ตัดบรรทัดได้นิดหน่อย */
+                white-space: normal !important; /* ยกเว้นชื่องานให้ตัดบรรทัดได้ แต่วางความกว้างขั้นต่ำไว้ */
                 min-width: 250px !important; 
             }
 
-            /* ปฏิทินมือถือ */
+            /* 🟢 3. แก้ไขป๊อปอัปรายละเอียด ให้ข้อมูลเรียงลงล่าง ไม่บีบตัวอักษร */
+            .detail-grid {
+                display: flex !important;
+                flex-direction: column !important; /* บังคับเรียงบนลงล่าง */
+                gap: 15px !important;
+            }
+            .detail-main-info, .detail-meta-info {
+                width: 100% !important;
+                min-width: 100% !important;
+            }
+            .meta-item {
+                display: flex !important;
+                flex-direction: column !important; /* แยกบรรทัดหัวข้อและข้อมูล */
+                align-items: flex-start !important;
+                gap: 4px !important;
+                margin-bottom: 10px !important;
+            }
+            .meta-label { font-size: 13px !important; color: #94a3b8 !important; }
+            .meta-value, .meta-value-user { font-size: 14px !important; font-weight: 500 !important; }
+
+            /* ปฏิทินบนมือถือ: ปล่อยตารางเลื่อนได้ ลดขนาดฟอนต์แทน */
             .fc-event-title { font-size: 9px !important; line-height: 1.1 !important; }
             .fc-col-header-cell-cushion { font-size: 11px !important; font-weight: 700 !important; }
             .fc-daygrid-day-number { font-size: 11px !important; padding: 2px !important; } 
             
-            .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; }
-            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap; gap: 4px; }
+            .fc-header-toolbar { display: flex !important; flex-direction: column !important; gap: 8px !important; margin-bottom: 10px !important; width: 100% !important; }
+            .fc-toolbar-chunk { display: flex !important; justify-content: center !important; width: 100% !important; flex-wrap: wrap !important; gap: 4px; }
             .fc .fc-toolbar-title { font-size: 1.1em !important; text-align: center !important; width: 100%; margin-bottom: 4px; }
-            .fc .fc-button { padding: 5px 10px !important; font-size: 11px !important; margin: 0 2px !important; }
+            .fc .fc-button { padding: 5px 10px !important; font-size: 11px !important; margin: 2px !important; }
             
             #viewTeamCalendar .glass-card { padding: 8px !important; }
+            /* ปล่อยให้ปฏิทินเลื่อนซ้ายขวาได้หากจอแคบมาก จะได้ไม่ดันตกขอบ */
+            .fc-view-harness { overflow-x: auto !important; }
         }
 
         @media (min-width: 769px) {
@@ -115,10 +111,10 @@
             .mobile-staff-progress-box { display: none !important; }
 
             .fc-event-title { font-size: 11.5px !important; }
-            .fc-col-header-cell-cushion { font-size: 13px !important; font-weight: 600 !important; }
+            .fc-col-header-cell-cushion { font-size: 14px !important; font-weight: 600 !important; padding: 8px !important; }
             .fc-header-toolbar { display: flex !important; flex-direction: row !important; justify-content: space-between !important; margin-bottom: 1.5em !important; }
-            .fc .fc-toolbar-title { font-size: 1.3em !important; }
-            .fc .fc-button { padding: 6px 12px !important; font-size: 13px !important; }
+            .fc .fc-toolbar-title { font-size: 1.5em !important; }
+            .fc .fc-button { padding: 8px 16px !important; font-size: 13px !important; }
         }
     </style>
 </head>
@@ -141,9 +137,9 @@
                     <p class="nav-group-title">ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)</p>
                     <a href="#" class="nav-link active" data-view="leader-dashboard"><i class="fas fa-chart-line"></i><span>ภาพรวมยุทธการ</span></a>
                     <a href="#" class="nav-link" data-view="leader-tasks"><i class="fas fa-list-check"></i><span>แฟ้มภารกิจทั้งหมด</span></a>
-                    <a href="#" class="nav-link" data-view="leader-team"><i class="fas fa-users-gear"></i><span>จัดการเจ้าหน้าที่</span></a>
                     <a href="#" class="nav-link" data-view="team-calendar"><i class="far fa-calendar-alt"></i><span>ปฏิทินยุทธการ</span></a>
                     <a href="#" class="nav-link" data-view="data-repo"><i class="fas fa-cloud-arrow-up"></i><span>คลังข้อมูลส่วนกลาง</span></a>
+                    <a href="#" class="nav-link" data-view="leader-team"><i class="fas fa-users-gear"></i><span>จัดการเจ้าหน้าที่</span></a>
                 </div>
                 <div id="staffNav" class="nav-group d-none">
                     <p class="nav-group-title">ระดับเจ้าหน้าที่ฝ่ายยุทธการ</p>
@@ -299,6 +295,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=700"></script>
+    <script src="app.js?v=800"></script>
 </body>
 </html>
