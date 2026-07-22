@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * แก้ไขบั๊กกดปฏิทินนิ่ง + ฝังระบบ History API ป้องกันกดย้อนกลับหลุดแอป 100%
+ * ฉบับสมบูรณ์ 100% (เพิ่มระบบแก้ไขกิจย่อยได้โดยตรงโดยไม่ต้องลบ + อัปเดตแบบ Real-time)
  */
 
 class AttachmentStore {
@@ -66,7 +66,6 @@ class App {
             this.attachments.init().then(async () => { await this.syncWithCloudflare(); this.render(); })
             .catch(async err => { console.warn("DB Storage Error", err); await this.syncWithCloudflare(); this.render(); });
             
-            // 🟢 ระบบ History API กันผู้ใช้กด Back แล้วหลุดแอป
             window.addEventListener('popstate', (e) => {
                 let modalClosed = false;
                 if (this.taskModal && this.taskModal.classList.contains('show')) { this.taskModal.classList.remove('show'); modalClosed = true; }
@@ -355,6 +354,7 @@ class App {
         });
     }
 
+    // 🟢 ระบบ Render กิจย่อยใหม่ เปลี่ยนให้กลายเป็นกล่องข้อความที่แก้ไขได้โดยตรง
     renderSubTaskListInModal() {
         const container = document.getElementById('subTaskListContainer'); if (!container) return;
         container.innerHTML = '';
@@ -363,10 +363,34 @@ class App {
         }
         this.tempSubTasks.forEach((sub, index) => {
             const item = document.createElement('div');
-            item.style = 'display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); margin-bottom:4px;';
-            item.innerHTML = `<span>🔹 ${sub.name}</span><button type="button" style="background:transparent; border:none; color:#ef4444; cursor:pointer;" onclick="app.removeTempSubTask(${index})"><i class="fas fa-trash-can"></i></button>`;
+            item.style = 'display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 6px;';
+            
+            // ปกป้องตัวอักษรพิเศษกันการรวนของระบบ
+            const safeName = sub.name ? sub.name.replace(/"/g, '&quot;') : '';
+            
+            item.innerHTML = `
+                <div style="display:flex; align-items:center; flex-grow:1; margin-right:10px; background: rgba(0,0,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; transition: border 0.2s;">
+                    <i class="fas fa-pen" style="font-size: 11px; margin-right: 10px; color: #3b82f6;"></i>
+                    <input type="text" value="${safeName}" 
+                           oninput="app.updateTempSubTask(${index}, this.value)" 
+                           style="flex-grow:1; background:transparent; border:none; color:var(--text-primary); outline:none; font-family:'Prompt', sans-serif; font-size:13.5px; width:100%;"
+                           onfocus="this.parentElement.style.border='1px dashed #3b82f6'"
+                           onblur="this.parentElement.style.border='1px solid transparent'"
+                           placeholder="พิมพ์เพื่อแก้ไขกิจย่อย...">
+                </div>
+                <button type="button" style="background:transparent; border:none; color:#ef4444; cursor:pointer; padding:6px;" onclick="app.removeTempSubTask(${index})" title="ลบกิจย่อย">
+                    <i class="fas fa-trash-can" style="font-size: 14px;"></i>
+                </button>
+            `;
             container.appendChild(item);
         });
+    }
+
+    // 🟢 ฟังก์ชันอัปเดตข้อความกิจย่อยแบบ Real-time เข้าไปในความจำระบบทันที
+    updateTempSubTask(index, newValue) {
+        if (this.tempSubTasks && this.tempSubTasks[index]) {
+            this.tempSubTasks[index].name = newValue.trim();
+        }
     }
 
     removeTempSubTask(index) { if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks.splice(index, 1); this.renderSubTaskListInModal(); } }
@@ -456,7 +480,6 @@ class App {
                 },
                 { events: appEvents }
             ],
-            // 🟢 แก้ไขบักการคลิกปฏิทินที่ error ในบางอุปกรณ์
             eventClick: (info) => {
                 try {
                     info.jsEvent.preventDefault(); 
@@ -600,7 +623,6 @@ class App {
             } else { historyLogContainer.innerHTML = '<i>ยังไม่มีประวัติ</i>'; }
         }
         
-        // 🟢 ฝังประวัติไว้เพื่อให้กดย้อนกลับแล้วหน้าต่างปิดเนียนๆ
         history.pushState({ modal: 'detail' }, ''); 
         if(this.taskDetailModal) this.taskDetailModal.classList.add('show');
     }
@@ -914,7 +936,6 @@ class App {
     getSecrecyBadge(secrecy) { let badgeClass = 'secrecy-normal'; if (secrecy === 'ลับ') badgeClass = 'secrecy-confidential'; if (secrecy === 'ลับมาก') badgeClass = 'secrecy-secret'; if (secrecy === 'ลับที่สุด') badgeClass = 'secrecy-top-secret'; return `<span class="secrecy-badge ${badgeClass}">${secrecy}</span>`; }
     getStatusBadge(status) { let badgeClass = 'badge-todo'; if (status === 'กำลังทำ') badgeClass = 'badge-progress'; if (status === 'รอการอนุมัติ') badgeClass = 'badge-review'; if (status === 'เสร็จสิ้น') badgeClass = 'badge-done'; return `<span class="status-badge ${badgeClass}">${status}</span>`; }
     
-    // 🟢 ระบบปิดหน้าต่าง ที่ทำงานร่วมกับ History API ป้องกันการหลุดออกนอกแอป
     closeTaskModal() { if(this.taskModal && this.taskModal.classList.contains('show')) { if(history.state && history.state.modal) history.back(); else this.taskModal.classList.remove('show'); } }
     closeDetailModal() { if(this.taskDetailModal && this.taskDetailModal.classList.contains('show')) { if(history.state && history.state.modal) history.back(); else this.taskDetailModal.classList.remove('show'); } }
     closeEventModal() { const ev = document.getElementById('eventModal'); if(ev && ev.classList.contains('show')) { if(history.state && history.state.modal) history.back(); else ev.classList.remove('show'); } }
