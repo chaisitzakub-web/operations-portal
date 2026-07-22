@@ -295,14 +295,18 @@ body {
 /* SYSTEM MODALS CONFIGURATION */
 .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; z-index: 200; transition: opacity var(--transition-normal); }
 .modal-backdrop.show { opacity: 1; pointer-events: auto; }
-.modal { width: 90%; max-width: 550px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; transform: scale(0.9); transition: transform var(--transition-normal); }
+
+/* 🟢 ปรับแก้ขยายความกว้าง Modal และจัดการส่วนเลื่อน */
+.modal { width: 95% !important; max-width: 850px !important; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; transform: scale(0.9); transition: transform var(--transition-normal); }
 .modal-backdrop.show .modal { transform: scale(1); }
-.modal-lg { max-width: 800px; }
+.modal-lg { max-width: 850px !important; }
 .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; }
 .modal-title { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
 .detail-secrecy-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: var(--secrecy-top-secret); color: white; }
 .modal-close-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
-.modal-body { padding: 24px; overflow-y: auto; }
+
+/* 🟢 ปรับเพิ่มการเลื่อนด้านใน */
+.modal-body { padding: 24px; overflow-y: auto; max-height: 70vh !important; padding-right: 10px; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--glass-border); display: flex; justify-content: flex-end; gap: 12px; }
 
 .modal form {
@@ -384,6 +388,20 @@ body {
     .row-mobile-three { grid-template-columns: 1fr 1fr !important; gap: 8px; }
     .row-mobile-three .form-group:nth-child(3) { grid-column: span 2; }
     
+    /* 🟢 เพิ่มการจัดระเบียบฟอร์มใน Modal บนมือถือให้เป็นแนวตั้งเรียงแถวตอนลึก */
+    .modal .form-row {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0 !important;
+    }
+    .modal .form-row .form-group {
+        width: 100% !important;
+        margin-bottom: 15px !important;
+    }
+    .modal-body {
+        max-height: 65vh !important; /* ย่อหน้าต่างให้พอดีจอตอนแป้นพิมพ์มือถือเด้งขึ้นมา */
+    }
+
     .detail-meta-info { order: -1; width: 100%; } 
     .detail-desc { min-height: 180px !important; }
 
