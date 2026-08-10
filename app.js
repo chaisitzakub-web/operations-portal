@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับสมบูรณ์ 100% (เพิ่มระบบแก้ไขกิจย่อยได้โดยตรงโดยไม่ต้องลบ + อัปเดตแบบ Real-time)
+ * ฉบับสมบูรณ์ 100% (รองรับการบันทึก/แก้ไข/แสดงผล เลขที่เอกสารรับ-ออก สมบูรณ์แบบ)
  */
 
 class AttachmentStore {
@@ -126,6 +126,11 @@ class App {
         this.taskStatusInput = document.getElementById('taskStatus'); this.taskUrgencyInput = document.getElementById('taskUrgency');
         this.taskSecrecyInput = document.getElementById('taskSecrecy'); this.taskReceiveDateInput = document.getElementById('taskReceiveDate');
         this.taskStartDateInput = document.getElementById('taskStartDate'); this.taskDeadlineInput = document.getElementById('taskDeadline');
+        
+        // ตัวแปรช่องกรอกเอกสารอ้างอิง
+        this.taskDocRefIn = document.getElementById('taskDocRefIn');
+        this.taskDocRefOut = document.getElementById('taskDocRefOut');
+
         this.btnCancelTaskModal = document.getElementById('btnCancelTaskModal'); this.btnSubmitTaskModal = document.getElementById('btnSubmitTaskModal');
         this.taskModalCloseBtn = document.getElementById('taskModalCloseBtn');
         this.btnDeleteTaskModal = document.getElementById('btnDeleteTaskModal');
@@ -134,6 +139,11 @@ class App {
         this.detailDescription = document.getElementById('detailDescription'); this.detailSecrecyBadge = document.getElementById('detailSecrecyBadge');
         this.detailAssigneeAvatar = document.getElementById('detailAssigneeAvatar'); this.detailAssigneeName = document.getElementById('detailAssigneeName');
         this.detailStatusBadge = document.getElementById('detailStatusBadge'); this.detailUrgencyBadge = document.getElementById('detailUrgencyBadge');
+        
+        // ตัวแปรช่องแสดงผลเอกสารอ้างอิง
+        this.detailDocRefIn = document.getElementById('detailDocRefIn');
+        this.detailDocRefOut = document.getElementById('detailDocRefOut');
+
         this.detailReceiveDate = document.getElementById('detailReceiveDate'); this.detailStartDate = document.getElementById('detailStartDate');
         this.detailDeadline = document.getElementById('detailDeadline'); this.detailOverdueBox = document.getElementById('detailOverdueBox');
         this.detailModalFooter = document.getElementById('detailModalFooter'); this.taskDetailCloseBtn = document.getElementById('taskDetailCloseBtn');
@@ -354,7 +364,6 @@ class App {
         });
     }
 
-    // 🟢 ระบบ Render กิจย่อยใหม่ เปลี่ยนให้กลายเป็นกล่องข้อความที่แก้ไขได้โดยตรง
     renderSubTaskListInModal() {
         const container = document.getElementById('subTaskListContainer'); if (!container) return;
         container.innerHTML = '';
@@ -364,10 +373,7 @@ class App {
         this.tempSubTasks.forEach((sub, index) => {
             const item = document.createElement('div');
             item.style = 'display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 6px;';
-            
-            // ปกป้องตัวอักษรพิเศษกันการรวนของระบบ
             const safeName = sub.name ? sub.name.replace(/"/g, '&quot;') : '';
-            
             item.innerHTML = `
                 <div style="display:flex; align-items:center; flex-grow:1; margin-right:10px; background: rgba(0,0,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; transition: border 0.2s;">
                     <i class="fas fa-pen" style="font-size: 11px; margin-right: 10px; color: #3b82f6;"></i>
@@ -386,7 +392,6 @@ class App {
         });
     }
 
-    // 🟢 ฟังก์ชันอัปเดตข้อความกิจย่อยแบบ Real-time เข้าไปในความจำระบบทันที
     updateTempSubTask(index, newValue) {
         if (this.tempSubTasks && this.tempSubTasks[index]) {
             this.tempSubTasks[index].name = newValue.trim();
@@ -573,6 +578,10 @@ class App {
         if(this.detailAssigneeName) this.detailAssigneeName.textContent = member.name;
         if(this.detailStatusBadge) this.detailStatusBadge.innerHTML = this.getStatusBadge(task.status); 
         if(this.detailUrgencyBadge) this.detailUrgencyBadge.innerHTML = this.getUrgencyBadge(task.urgency);
+        
+        if(this.detailDocRefIn) this.detailDocRefIn.textContent = task.docRefIn || '-';
+        if(this.detailDocRefOut) this.detailDocRefOut.textContent = task.docRefOut || '-';
+
         if(this.detailReceiveDate) this.detailReceiveDate.textContent = task.receiveDate || task.startDate;
         if(this.detailStartDate) this.detailStartDate.textContent = task.startDate; 
         if(this.detailDeadline) this.detailDeadline.textContent = task.deadline;
@@ -739,6 +748,10 @@ class App {
         if (!this.taskModal) return; this.taskForm.reset(); this.taskModalTitle.innerHTML = 'มอบหมายภารกิจยุทธการใหม่'; this.taskIdField.value = '';
         this.tempSubTasks = []; this.renderSubTaskListInModal();
         if(this.taskReceiveDateInput) { const today = new Date().toISOString().split('T')[0]; this.taskReceiveDateInput.value = today; this.taskStartDateInput.value = today; this.taskDeadlineInput.value = today; }
+        
+        if(this.taskDocRefIn) this.taskDocRefIn.value = '';
+        if(this.taskDocRefOut) this.taskDocRefOut.value = '';
+
         const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
         if (isAdmin) { this.taskAssigneeInput.value = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3')[0]?.id || ''; this.taskAssigneeInput.disabled = false; } else { this.taskAssigneeInput.value = this.currentUser; this.taskAssigneeInput.disabled = true; }
         this.taskStatusInput.value = 'รอดำเนินการ'; this.taskStatusInput.disabled = false;
@@ -752,6 +765,11 @@ class App {
     openEditTaskModal(taskId) {
         if (!this.taskModal) return; const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         this.taskModalTitle.innerHTML = 'แก้ไขข้อมูลยุทธการ'; this.taskIdField.value = task.id; this.taskNameInput.value = task.name; this.taskDescriptionInput.value = task.description; this.taskAssigneeInput.value = task.assigneeId; this.taskStatusInput.value = task.status; this.taskUrgencyInput.value = task.urgency; this.taskSecrecyInput.value = task.secrecy;
+        
+        // 🟢 ดึงค่าเลขเอกสารเก่ามาโชว์ในช่องตอนกดแก้ไข
+        if(this.taskDocRefIn) this.taskDocRefIn.value = task.docRefIn || '';
+        if(this.taskDocRefOut) this.taskDocRefOut.value = task.docRefOut || '';
+
         if(this.taskReceiveDateInput) { this.taskReceiveDateInput.value = task.receiveDate || task.startDate; this.taskStartDateInput.value = task.startDate; this.taskDeadlineInput.value = task.deadline; }
         this.tempSubTasks = task.subTasks ? JSON.parse(JSON.stringify(task.subTasks)) : []; this.renderSubTaskListInModal();
         const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith'); this.taskAssigneeInput.disabled = !isAdmin; this.taskStatusInput.disabled = false;
@@ -769,18 +787,33 @@ class App {
     async submitTaskForm() {
         const id = this.taskIdField.value; const name = this.taskNameInput.value.trim(); const description = this.taskDescriptionInput.value.trim(); const assigneeId = this.taskAssigneeInput.value; const status = this.taskStatusInput.value; const urgency = this.taskUrgencyInput.value; const secrecy = this.taskSecrecyInput.value;
         const receiveDate = this.taskReceiveDateInput ? this.taskReceiveDateInput.value : ''; const startDate = this.taskStartDateInput ? this.taskStartDateInput.value : ''; const deadline = this.taskDeadlineInput ? this.taskDeadlineInput.value : '';
+        
+        const docRefIn = this.taskDocRefIn ? this.taskDocRefIn.value.trim() : '';
+        const docRefOut = this.taskDocRefOut ? this.taskDocRefOut.value.trim() : '';
+
         if (new Date(startDate) < new Date(receiveDate)) { alert('ข้อผิดพลาด: วันที่เริ่มปฏิบัติงาน ต้องไม่ก่อนวันที่เอกสารเข้า'); return; } if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง ต้องไม่ก่อนวันเริ่มต้นปฏิบัติงาน'); return; }
         const now = new Date(); const logUser = this.currentUserName.textContent; let finalTaskId = id; let taskObj = null; let lineAlertMessage = '';
+        
         if (id) {
             taskObj = this.tasks.find(t => t.id === id);
             if (taskObj) {
                 const changes = []; if (taskObj.name !== name) changes.push(`หัวข้อ`); if (taskObj.assigneeId !== assigneeId) changes.push(`ผู้รับผิดชอบ`); if (taskObj.status !== status) changes.push(`สถานะ`);
+                if (taskObj.docRefIn !== docRefIn) changes.push(`เลขที่เอกสารที่รับ`);
+                if (taskObj.docRefOut !== docRefOut) changes.push(`เลขที่เอกสาร ฝยก.`);
+
                 taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status; taskObj.urgency = urgency; taskObj.secrecy = secrecy; taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline; taskObj.subTasks = [...this.tempSubTasks];
+                
+                // 🟢 บันทึกเลขเอกสารทับของเดิม
+                taskObj.docRefIn = docRefIn; taskObj.docRefOut = docRefOut;
+
                 if (!taskObj.history) taskObj.history = []; if (changes.length > 0) { taskObj.history.push({ time: now.toISOString(), action: `แก้ไข: ${changes.join(', ')}`, user: logUser }); lineAlertMessage = `อัปเดตข้อมูล: ${changes.join(', ')}`; }
             }
         } else {
-            finalTaskId = `task-${Date.now()}`; taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, subTasks: [...this.tempSubTasks], history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้น`, user: logUser }] }; this.tasks.push(taskObj); lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
+            finalTaskId = `task-${Date.now()}`; 
+            taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, docRefIn, docRefOut, subTasks: [...this.tempSubTasks], history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้น`, user: logUser }] }; 
+            this.tasks.push(taskObj); lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
         }
+
         if (taskObj && this.taskPdfInput && this.taskPdfInput.files.length > 0) {
             const files = this.taskPdfInput.files; const fileNamesArray = Array.from(files).map(f => f.name); this.btnSubmitTaskModal.disabled = true; this.btnSubmitTaskModal.innerHTML = '<i class="fas fa-spinner fa-spin"></i> อัปโหลดไฟล์...';
             if (this.isCloudMode) {
