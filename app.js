@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * แก้ไขบั๊ก "กิจย่อยหาย" + กด Enter เพิ่มกิจย่อยได้ + ดึงข้อความค้างในช่องเซฟให้อัตโนมัติ
+ * อัปเดตล่าสุด: เพิ่มระบบกรอง "ปี พ.ศ." ดึงข้อมูลปีอัตโนมัติจากฐานข้อมูลงาน
  */
 
 class AttachmentStore {
@@ -104,6 +104,9 @@ class App {
         this.statReviewTasks = document.getElementById('statReviewTasks'); this.statCompletedTasks = document.getElementById('statCompletedTasks');
         this.statOverdueTasks = document.getElementById('statOverdueTasks'); this.teamProgressTableBody = document.querySelector('#teamProgressTable tbody');
 
+        // 🟢 เพิ่มตัวกรอง "ปี พ.ศ."
+        this.filterYear = document.getElementById('filterYear');
+        
         this.filterAssignee = document.getElementById('filterAssignee'); this.filterUrgency = document.getElementById('filterUrgency');
         this.filterSecrecy = document.getElementById('filterSecrecy'); this.filterStatus = document.getElementById('filterStatus');
         this.searchTask = document.getElementById('searchTask'); this.masterTasksTableBody = document.querySelector('#masterTasksTable tbody');
@@ -196,20 +199,25 @@ class App {
         return diffHours >= 0 && diffHours <= 24; 
     }
 
+    // 🟢 ระบบกรองค้นหางาน: เพิ่มเงื่อนไขกรอง "ปี พ.ศ." เข้าไปในระบบค้นหา
     getFilteredTasks() {
+        const fYear = this.filterYear ? this.filterYear.value : 'all'; 
         const fAssignee = this.filterAssignee ? this.filterAssignee.value : 'all'; 
         const fUrgency = this.filterUrgency ? this.filterUrgency.value : 'all'; 
         const fSecrecy = this.filterSecrecy ? this.filterSecrecy.value : 'all'; 
         const fStatus = this.filterStatus ? this.filterStatus.value : 'all'; 
         const fSearch = this.searchTask ? this.searchTask.value.toLowerCase().trim() : '';
+        
         return this.tasks.filter(task => {
+            const taskYearStr = task.startDate ? task.startDate.split('-')[0] : '';
+            const matchYear = (fYear === 'all') || (taskYearStr === fYear);
             const matchAssignee = (fAssignee === 'all') || (task.assigneeId === fAssignee); 
             const matchUrgency = (fUrgency === 'all') || (task.urgency === fUrgency); 
             const matchSecrecy = (fSecrecy === 'all') || (task.secrecy === fSecrecy);
             let matchStatus = true; 
             if (fStatus !== 'all') { if (fStatus === 'overdue') matchStatus = this.isOverdue(task); else matchStatus = (task.status === fStatus); }
             const matchSearch = !fSearch || task.name.toLowerCase().includes(fSearch) || (task.description && task.description.toLowerCase().includes(fSearch));
-            return matchAssignee && matchUrgency && matchSecrecy && matchStatus && matchSearch;
+            return matchYear && matchAssignee && matchUrgency && matchSecrecy && matchStatus && matchSearch;
         });
     }
 
@@ -287,6 +295,7 @@ class App {
         if (this.filterSecrecy) this.filterSecrecy.value = 'all';
         if (this.searchTask) this.searchTask.value = '';
         if (this.filterStatus) this.filterStatus.value = statusValue;
+        if (this.filterYear) this.filterYear.value = 'all'; // เคลียร์ปีให้โชว์ทุกงาน
         
         const member = this.staff.find(m => m.id === this.currentUser);
         if (member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) {
@@ -319,12 +328,11 @@ class App {
             });
         }
 
-        // 🟢 ระบบดักจับการกด Enter ในช่องเพิ่มกิจย่อย (ป้องกันฟอร์ม Submit อัตโนมัติ)
         const inputSub = document.getElementById('inputSubTaskName');
         if (inputSub) {
             inputSub.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
-                    e.preventDefault(); // กันฟอร์ม submit ทิ้ง
+                    e.preventDefault(); 
                     const name = inputSub.value.trim();
                     if (name) {
                         if (!this.tempSubTasks) this.tempSubTasks = [];
@@ -363,7 +371,8 @@ class App {
             btnGantt.addEventListener('click', () => { this.tasksViewMode = 'gantt'; btnTable.className = 'btn btn-secondary'; btnGantt.className = 'btn btn-primary'; document.getElementById('masterTableArea').classList.add('d-none'); document.getElementById('masterGanttArea').classList.remove('d-none'); this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); });
         }
 
-        const filters = [this.filterAssignee, this.filterUrgency, this.filterSecrecy, this.filterStatus];
+        // 🟢 เพิ่มตัวกรอง "ปี พ.ศ." ให้คอยจับสัญญาณเมื่อมีการเปลี่ยนค่า
+        const filters = [this.filterAssignee, this.filterUrgency, this.filterSecrecy, this.filterStatus, this.filterYear];
         filters.forEach(filter => { if(filter) filter.addEventListener('change', () => { if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); else this.renderMasterTaskListTable(); }); });
         if(this.searchTask) this.searchTask.addEventListener('input', () => { if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); else this.renderMasterTaskListTable(); });
 
@@ -805,7 +814,6 @@ class App {
 
         if (new Date(startDate) < new Date(receiveDate)) { alert('ข้อผิดพลาด: วันที่เริ่มปฏิบัติงาน ต้องไม่ก่อนวันที่เอกสารเข้า'); return; } if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง ต้องไม่ก่อนวันเริ่มต้นปฏิบัติงาน'); return; }
         
-        // 🟢 กวาดข้อความที่พิมพ์ค้างไว้ในช่องเพิ่มกิจย่อย (กันผู้ใช้ลืมกดปุ่ม + แล้วกดบันทึกเลย)
         const subInput = document.getElementById('inputSubTaskName');
         if (subInput && subInput.value.trim() !== '') {
             this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: subInput.value.trim(), isDone: false });
@@ -822,10 +830,7 @@ class App {
                 if (taskObj.docRefOut !== docRefOut) changes.push(`เลขที่เอกสาร ฝยก.`);
 
                 taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status; taskObj.urgency = urgency; taskObj.secrecy = secrecy; taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline; 
-                
-                // 🟢 บันทึกกิจย่อย โดยกรองอันที่โดนลบจนข้อความว่างเปล่าทิ้งไป
                 taskObj.subTasks = this.tempSubTasks.filter(s => s.name.trim() !== '');
-                
                 taskObj.docRefIn = docRefIn; taskObj.docRefOut = docRefOut;
 
                 if (!taskObj.history) taskObj.history = []; if (changes.length > 0) { taskObj.history.push({ time: now.toISOString(), action: `แก้ไข: ${changes.join(', ')}`, user: logUser }); lineAlertMessage = `อัปเดตข้อมูล: ${changes.join(', ')}`; }
@@ -848,6 +853,9 @@ class App {
         }
         if (lineAlertMessage !== '') this.sendLineAlert(taskObj, lineAlertMessage); this.saveData(); 
         
+        // 🟢 ให้ระบบโหลดปี พ.ศ. ใหม่เผื่อมีการสร้างงานปีใหม่ๆ
+        this.populateYearDropdown();
+
         this.closeTaskModal(); 
         if (this.isCloudMode) { try { await fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskObj) }); } catch (err) {} }
         if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
@@ -860,6 +868,10 @@ class App {
             this.tasks = this.tasks.filter(t => t.id !== taskId); this.attachments.deleteAttachment(taskId).catch(e => e); this.saveData();
             if (this.isCloudMode) fetch(`/api/tasks?id=${taskId}`, { method: 'DELETE' }).catch(e => e);
             if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
+            
+            // 🟢 ให้ระบบอัปเดตช่องปี พ.ศ. เผื่อลบงานปีสุดท้ายทิ้ง
+            this.populateYearDropdown();
+
             this.switchView(this.currentView, true); 
             this.showToast('ลบภารกิจเรียบร้อย', 'danger');
 
@@ -876,7 +888,6 @@ class App {
                 const btnApprove = document.createElement('button'); btnApprove.className = 'btn btn-success'; btnApprove.innerHTML = 'ลงนามอนุมัติ'; btnApprove.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'เสร็จสิ้น', 'ลงนามอนุมัติ')); this.detailModalFooter.appendChild(btnApprove);
             } else {
                 const btnEdit = document.createElement('button'); btnEdit.className = 'btn btn-primary'; btnEdit.innerHTML = 'แก้ไขภารกิจ'; 
-                // 🟢 แก้บักกดแก้ไขแล้วจอรวน ลบการเชื่อม History.back ออกไป
                 btnEdit.addEventListener('click', () => { 
                     if(this.taskDetailModal) this.taskDetailModal.classList.remove('show'); 
                     this.openEditTaskModal(task.id); 
@@ -1049,6 +1060,39 @@ class App {
         this.roleSelector.appendChild(groupStaff);
     }
 
+    // 🟢 ระบบสร้างตัวเลือก "ปี พ.ศ." ให้ผู้ใช้กรองข้อมูล
+    populateYearDropdown() {
+        if (!this.filterYear) return;
+        const currentSelected = this.filterYear.value; // เก็บค่าที่เลือกไว้เดิม
+        this.filterYear.innerHTML = '<option value="all">ทั้งหมด</option>';
+        
+        const years = new Set();
+        this.tasks.forEach(t => { 
+            if(t.startDate) {
+                const year = t.startDate.split('-')[0];
+                if(year) years.add(parseInt(year));
+            } 
+        });
+        
+        // ถ้ายังไม่มีงานเลย ให้ใส่ปีปัจจุบันเป็นตัวเลือกไว้ก่อน
+        if(years.size === 0) years.add(new Date().getFullYear());
+        
+        // เรียงปีจากใหม่สุดไปเก่าสุด
+        const sortedYears = Array.from(years).sort((a, b) => b - a);
+        
+        sortedYears.forEach(yearStr => {
+            const opt = document.createElement('option');
+            opt.value = yearStr;
+            opt.textContent = parseInt(yearStr) + 543; // แปลงเป็นปี พ.ศ. ให้แสดงผล
+            this.filterYear.appendChild(opt);
+        });
+        
+        // คืนค่าที่เคยเลือกไว้ ถ้าปีนั้นยังมีอยู่ในระบบ
+        if (Array.from(years).includes(parseInt(currentSelected))) {
+            this.filterYear.value = currentSelected;
+        }
+    }
+
     populateAssigneeDropdowns() {
         if (this.taskAssigneeInput) { 
             this.taskAssigneeInput.innerHTML = ''; const workingStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3');
@@ -1063,7 +1107,9 @@ class App {
     }
 
     render() { 
-        this.populateRoleSwitcher(); this.populateAssigneeDropdowns(); 
+        this.populateRoleSwitcher(); 
+        this.populateAssigneeDropdowns(); 
+        this.populateYearDropdown(); // 🟢 สั่งรันดึงปีตอนโหลดเข้าเว็บ
         this.switchRole(this.currentUser, true); 
     }
 }
