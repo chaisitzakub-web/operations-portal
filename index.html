@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
-        /* 🚫 สีทึบ 100% อ่านง่ายสบายตา */
         .glass-card, .modal, .kanban-card, .metric-card, .chart-container, .table-container, 
         .form-container, .team-cards-container, .staff-header-profile, .detail-meta-info,
         #eventDescription, #mobileStaffProgressDisplay, .modal-backdrop {
@@ -38,7 +37,6 @@
         .form-control { background-color: #0f172a !important; color: #f8fafc !important; border: 1px solid #475569 !important; }
         body.light-theme .form-control { background-color: #f1f5f9 !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; }
 
-        /* 🛡️ ระบบปฏิทิน */
         #fullCalendarContainer { width: 100%; max-width: 100%; background: #ffffff !important; color: #000000 !important; border-radius: 8px; overflow: hidden; }
         .fc { width: 100% !important; max-width: 100% !important; }
         .fc .fc-scrollgrid { border-collapse: collapse !important; border-left-width: 0 !important; border-right-width: 0 !important; width: 100% !important; table-layout: fixed !important; }
@@ -51,11 +49,9 @@
         .fc-daygrid-event { white-space: normal !important; padding: 2px !important; margin: 1px !important; border-radius: 4px !important; }
         .fc-col-header-cell-cushion { padding: 6px 2px !important; text-decoration: none !important; color: #1e293b !important; display: block !important; text-align: center !important; }
 
-        /* 🟢 ขยายความกว้าง Modal ตอนเพิ่มงาน */
         .modal { width: 95% !important; max-width: 850px !important; }
         .modal-body { max-height: 70vh !important; overflow-y: auto !important; padding-right: 10px; }
 
-        /* 📱 ปรับ UI ให้สมดุลระหว่างมือถือ และ iPad/คอมพิวเตอร์ */
         @media (max-width: 768px) {
             #teamProgressTable { display: none !important; }
             #viewLeaderDashboard .table-header { display: none !important; }
@@ -75,7 +71,6 @@
             
             #viewTeamCalendar .glass-card { padding: 8px !important; }
             
-            /* บังคับช่องกรอกฟอร์มเรียงแนวตั้งบนมือถือ */
             .modal .form-row { display: flex !important; flex-direction: column !important; gap: 0 !important; }
             .modal .form-row .form-group { width: 100% !important; margin-bottom: 15px !important; }
             .modal-body { max-height: 65vh !important; }
@@ -106,6 +101,7 @@
                 <div class="custom-select-wrapper"><select id="roleSelector" class="role-selector"></select></div>
             </div>
             <nav class="sidebar-nav">
+                <!-- 🟢 เรียงลำดับเมนูตามที่ขอ -->
                 <div id="leaderNav" class="nav-group">
                     <p class="nav-group-title">ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)</p>
                     <a href="#" class="nav-link active" data-view="leader-dashboard"><i class="fas fa-chart-line"></i><span>ภาพรวมยุทธการ</span></a>
@@ -178,6 +174,8 @@
 
             <section id="viewLeaderTasks" class="content-view d-none">
                 <div class="filter-bar glass-card">
+                    <!-- 🟢 เพิ่มช่องคัดกรอง "ปี พ.ศ." 🟢 -->
+                    <div class="filter-group"><label>ปี พ.ศ.</label><select id="filterYear" class="form-control"><option value="all">ทั้งหมด</option></select></div>
                     <div class="filter-group"><label>เจ้าหน้าที่</label><select id="filterAssignee" class="form-control"><option value="all">ทั้งหมด</option></select></div>
                     <div class="filter-group"><label>ความเร่งด่วน</label><select id="filterUrgency" class="form-control"><option value="all">ทั้งหมด</option><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div>
                     <div class="filter-group"><label>ชั้นความลับ</label><select id="filterSecrecy" class="form-control"><option value="all">ทั้งหมด</option><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div>
@@ -263,7 +261,6 @@
                     <div class="form-group"><label for="taskName"><span class="required">*</span> ชื่องาน / แผนยุทธการ</label><input type="text" id="taskName" class="form-control" required placeholder="ระบุหัวข้อ..."></div>
                     <div class="form-group"><label for="taskDescription">รายละเอียดการปฏิบัติงาน</label><textarea id="taskDescription" class="form-control text-area" rows="3"></textarea></div>
                     
-                    <!-- 🟢 เพิ่ม 2 ช่องรับเลขเอกสารที่ขอมาใหม่ครับ 🟢 -->
                     <div class="form-row">
                         <div class="form-group"><label for="taskDocRefIn">เลขที่เอกสารที่รับ</label><input type="text" id="taskDocRefIn" class="form-control" placeholder="เช่น กห 0404/123"></div>
                         <div class="form-group"><label for="taskDocRefOut">เลขที่เอกสาร ฝยก.</label><input type="text" id="taskDocRefOut" class="form-control" placeholder="เช่น ฝยก. 456/69"></div>
@@ -305,11 +302,8 @@
         <div class="meta-item"><span class="meta-label">ผู้รับผิดชอบ:</span><div class="meta-value-user"><img id="detailAssigneeAvatar" src="" alt="Avatar" class="avatar-xs"><span id="detailAssigneeName">-</span></div></div>
         <div class="meta-item"><span class="meta-label">สถานะปัจจุบัน:</span><span class="status-badge" id="detailStatusBadge">-</span></div>
         <div class="meta-item"><span class="meta-label">ความเร่งด่วน:</span><span class="urgency-badge" id="detailUrgencyBadge">-</span></div>
-        
-        <!-- 🟢 เพิ่ม 2 ช่องแสดงเลขเอกสารที่ขอมาใหม่ครับ 🟢 -->
         <div class="meta-item"><span class="meta-label">เลขที่เอกสารที่รับ:</span><span class="meta-value" id="detailDocRefIn">-</span></div>
         <div class="meta-item"><span class="meta-label">เลขที่เอกสาร ฝยก.:</span><span class="meta-value" id="detailDocRefOut">-</span></div>
-        
         <div class="meta-item"><span class="meta-label">วันที่เอกสารเข้า:</span><span class="meta-value" id="detailReceiveDate">-</span></div><div class="meta-item"><span class="meta-label">วันที่เริ่มงาน:</span><span class="meta-value" id="detailStartDate">-</span></div><div class="meta-item"><span class="meta-label">กำหนดส่ง:</span><span class="meta-value" id="detailDeadline">-</span></div><div class="meta-item text-danger" id="detailOverdueBox"></div><div class="meta-item d-none" id="detailPdfItem"><span class="meta-label">เอกสารแนบ:</span><div id="pdfButtonsContainer"></div></div></div></div></div><div class="modal-footer" id="detailModalFooter"></div></div></div>
 
     <!-- Modal สำหรับเปิดรายละเอียดปฏิทินที่มาจาก Google Calendar -->
@@ -324,6 +318,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=920"></script>
+    <script src="app.js?v=930"></script>
 </body>
 </html>
