@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * ฉบับสมบูรณ์ 100% (รองรับการบันทึก/แก้ไข/แสดงผล เลขที่เอกสารรับ-ออก สมบูรณ์แบบ)
+ * แก้ไขบั๊ก "กิจย่อยหาย" + กด Enter เพิ่มกิจย่อยได้ + ดึงข้อความค้างในช่องเซฟให้อัตโนมัติ
  */
 
 class AttachmentStore {
@@ -127,7 +127,6 @@ class App {
         this.taskSecrecyInput = document.getElementById('taskSecrecy'); this.taskReceiveDateInput = document.getElementById('taskReceiveDate');
         this.taskStartDateInput = document.getElementById('taskStartDate'); this.taskDeadlineInput = document.getElementById('taskDeadline');
         
-        // ตัวแปรช่องกรอกเอกสารอ้างอิง
         this.taskDocRefIn = document.getElementById('taskDocRefIn');
         this.taskDocRefOut = document.getElementById('taskDocRefOut');
 
@@ -140,7 +139,6 @@ class App {
         this.detailAssigneeAvatar = document.getElementById('detailAssigneeAvatar'); this.detailAssigneeName = document.getElementById('detailAssigneeName');
         this.detailStatusBadge = document.getElementById('detailStatusBadge'); this.detailUrgencyBadge = document.getElementById('detailUrgencyBadge');
         
-        // ตัวแปรช่องแสดงผลเอกสารอ้างอิง
         this.detailDocRefIn = document.getElementById('detailDocRefIn');
         this.detailDocRefOut = document.getElementById('detailDocRefOut');
 
@@ -321,16 +319,31 @@ class App {
             });
         }
 
-        const btnAddSub = document.getElementById('btnAddSubTask');
-        if (btnAddSub) {
-            btnAddSub.addEventListener('click', () => {
-                const input = document.getElementById('inputSubTaskName');
-                if (input) {
-                    const name = input.value.trim();
+        // 🟢 ระบบดักจับการกด Enter ในช่องเพิ่มกิจย่อย (ป้องกันฟอร์ม Submit อัตโนมัติ)
+        const inputSub = document.getElementById('inputSubTaskName');
+        if (inputSub) {
+            inputSub.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); // กันฟอร์ม submit ทิ้ง
+                    const name = inputSub.value.trim();
                     if (name) {
                         if (!this.tempSubTasks) this.tempSubTasks = [];
                         this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: name, isDone: false });
-                        input.value = ''; this.renderSubTaskListInModal();
+                        inputSub.value = ''; this.renderSubTaskListInModal();
+                    }
+                }
+            });
+        }
+
+        const btnAddSub = document.getElementById('btnAddSubTask');
+        if (btnAddSub) {
+            btnAddSub.addEventListener('click', () => {
+                if (inputSub) {
+                    const name = inputSub.value.trim();
+                    if (name) {
+                        if (!this.tempSubTasks) this.tempSubTasks = [];
+                        this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: name, isDone: false });
+                        inputSub.value = ''; this.renderSubTaskListInModal();
                     }
                 }
             });
@@ -766,7 +779,6 @@ class App {
         if (!this.taskModal) return; const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         this.taskModalTitle.innerHTML = 'แก้ไขข้อมูลยุทธการ'; this.taskIdField.value = task.id; this.taskNameInput.value = task.name; this.taskDescriptionInput.value = task.description; this.taskAssigneeInput.value = task.assigneeId; this.taskStatusInput.value = task.status; this.taskUrgencyInput.value = task.urgency; this.taskSecrecyInput.value = task.secrecy;
         
-        // 🟢 ดึงค่าเลขเอกสารเก่ามาโชว์ในช่องตอนกดแก้ไข
         if(this.taskDocRefIn) this.taskDocRefIn.value = task.docRefIn || '';
         if(this.taskDocRefOut) this.taskDocRefOut.value = task.docRefOut || '';
 
@@ -792,6 +804,14 @@ class App {
         const docRefOut = this.taskDocRefOut ? this.taskDocRefOut.value.trim() : '';
 
         if (new Date(startDate) < new Date(receiveDate)) { alert('ข้อผิดพลาด: วันที่เริ่มปฏิบัติงาน ต้องไม่ก่อนวันที่เอกสารเข้า'); return; } if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง ต้องไม่ก่อนวันเริ่มต้นปฏิบัติงาน'); return; }
+        
+        // 🟢 กวาดข้อความที่พิมพ์ค้างไว้ในช่องเพิ่มกิจย่อย (กันผู้ใช้ลืมกดปุ่ม + แล้วกดบันทึกเลย)
+        const subInput = document.getElementById('inputSubTaskName');
+        if (subInput && subInput.value.trim() !== '') {
+            this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: subInput.value.trim(), isDone: false });
+            subInput.value = '';
+        }
+
         const now = new Date(); const logUser = this.currentUserName.textContent; let finalTaskId = id; let taskObj = null; let lineAlertMessage = '';
         
         if (id) {
@@ -801,16 +821,18 @@ class App {
                 if (taskObj.docRefIn !== docRefIn) changes.push(`เลขที่เอกสารที่รับ`);
                 if (taskObj.docRefOut !== docRefOut) changes.push(`เลขที่เอกสาร ฝยก.`);
 
-                taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status; taskObj.urgency = urgency; taskObj.secrecy = secrecy; taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline; taskObj.subTasks = [...this.tempSubTasks];
+                taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status; taskObj.urgency = urgency; taskObj.secrecy = secrecy; taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline; 
                 
-                // 🟢 บันทึกเลขเอกสารทับของเดิม
+                // 🟢 บันทึกกิจย่อย โดยกรองอันที่โดนลบจนข้อความว่างเปล่าทิ้งไป
+                taskObj.subTasks = this.tempSubTasks.filter(s => s.name.trim() !== '');
+                
                 taskObj.docRefIn = docRefIn; taskObj.docRefOut = docRefOut;
 
                 if (!taskObj.history) taskObj.history = []; if (changes.length > 0) { taskObj.history.push({ time: now.toISOString(), action: `แก้ไข: ${changes.join(', ')}`, user: logUser }); lineAlertMessage = `อัปเดตข้อมูล: ${changes.join(', ')}`; }
             }
         } else {
             finalTaskId = `task-${Date.now()}`; 
-            taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, docRefIn, docRefOut, subTasks: [...this.tempSubTasks], history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้น`, user: logUser }] }; 
+            taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, docRefIn, docRefOut, subTasks: this.tempSubTasks.filter(s => s.name.trim() !== ''), history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้น`, user: logUser }] }; 
             this.tasks.push(taskObj); lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
         }
 
@@ -853,7 +875,14 @@ class App {
                 const btnReject = document.createElement('button'); btnReject.className = 'btn btn-secondary'; btnReject.innerHTML = 'ส่งกลับปรับปรุง'; btnReject.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'ส่งคืนแผนงานแก้ไข')); this.detailModalFooter.appendChild(btnReject);
                 const btnApprove = document.createElement('button'); btnApprove.className = 'btn btn-success'; btnApprove.innerHTML = 'ลงนามอนุมัติ'; btnApprove.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'เสร็จสิ้น', 'ลงนามอนุมัติ')); this.detailModalFooter.appendChild(btnApprove);
             } else {
-                const btnEdit = document.createElement('button'); btnEdit.className = 'btn btn-primary'; btnEdit.innerHTML = 'แก้ไขภารกิจ'; btnEdit.addEventListener('click', () => { this.closeDetailModal(); this.openEditTaskModal(task.id); }); this.detailModalFooter.appendChild(btnEdit);
+                const btnEdit = document.createElement('button'); btnEdit.className = 'btn btn-primary'; btnEdit.innerHTML = 'แก้ไขภารกิจ'; 
+                // 🟢 แก้บักกดแก้ไขแล้วจอรวน ลบการเชื่อม History.back ออกไป
+                btnEdit.addEventListener('click', () => { 
+                    if(this.taskDetailModal) this.taskDetailModal.classList.remove('show'); 
+                    this.openEditTaskModal(task.id); 
+                }); 
+                this.detailModalFooter.appendChild(btnEdit);
+                
                 const btnDelete = document.createElement('button'); btnDelete.className = 'btn btn-danger'; btnDelete.innerHTML = 'ลบภารกิจ'; btnDelete.addEventListener('click', () => { this.deleteTask(task.id); }); this.detailModalFooter.appendChild(btnDelete);
             }
         } else {
