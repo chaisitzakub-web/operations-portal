@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เพิ่มระบบกรอง "ปี พ.ศ." ดึงข้อมูลปีอัตโนมัติจากฐานข้อมูลงาน
+ * อัปเดตล่าสุด: ถอดสิทธิ์แอดมินบังคับ ให้ จ.ส.ท. ชัยสิทธิ์ กลับมาอยู่หมวดเจ้าหน้าที่เพื่อดูกระดานคัมบังได้
  */
 
 class AttachmentStore {
@@ -46,7 +46,8 @@ class AttachmentStore {
 const DEFAULT_STAFF = [
     { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
     { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
-    { id: 'dev-chaisith', name: 'เจ้าหน้าที่ควบคุมระบบ', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' },
+    // 🟢 ปรับให้เป็นเจ้าหน้าที่ปกติ isStaffAdmin = false
+    { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'เสมียนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: false, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' },
     { id: 'staff-1', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak', rankWeight: 20, lineUserId: '' },
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40, lineUserId: '' }
@@ -78,7 +79,8 @@ class App {
                     this.switchView(e.state.view, true);
                 } else {
                     const member = this.staff.find(m => m.id === this.currentUser);
-                    if(member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) { this.switchView('leader-dashboard', true); } else { this.switchView('staff-kanban', true); }
+                    const isAdmin = member && (member.id === 'leader' || member.id === 'asst-g3' || member.isStaffAdmin);
+                    if(isAdmin) { this.switchView('leader-dashboard', true); } else { this.switchView('staff-kanban', true); }
                 }
             });
             
@@ -104,9 +106,7 @@ class App {
         this.statReviewTasks = document.getElementById('statReviewTasks'); this.statCompletedTasks = document.getElementById('statCompletedTasks');
         this.statOverdueTasks = document.getElementById('statOverdueTasks'); this.teamProgressTableBody = document.querySelector('#teamProgressTable tbody');
 
-        // 🟢 เพิ่มตัวกรอง "ปี พ.ศ."
         this.filterYear = document.getElementById('filterYear');
-        
         this.filterAssignee = document.getElementById('filterAssignee'); this.filterUrgency = document.getElementById('filterUrgency');
         this.filterSecrecy = document.getElementById('filterSecrecy'); this.filterStatus = document.getElementById('filterStatus');
         this.searchTask = document.getElementById('searchTask'); this.masterTasksTableBody = document.querySelector('#masterTasksTable tbody');
@@ -158,7 +158,8 @@ class App {
         if (!this.staff || !Array.isArray(this.staff)) this.staff = [];
         if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
         if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
-        if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'เจ้าหน้าที่ควบคุมระบบ', role: 'Powerpoint Wizard / DEV', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: true, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
+        // 🟢 เปลี่ยนสถานะตั้งต้นให้บัญชีของพี่ไม่ถูกล็อกเป็นแอดมินสูงสุด
+        if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'เสมียนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: false, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
     }
 
     startClock() {
@@ -199,7 +200,6 @@ class App {
         return diffHours >= 0 && diffHours <= 24; 
     }
 
-    // 🟢 ระบบกรองค้นหางาน: เพิ่มเงื่อนไขกรอง "ปี พ.ศ." เข้าไปในระบบค้นหา
     getFilteredTasks() {
         const fYear = this.filterYear ? this.filterYear.value : 'all'; 
         const fAssignee = this.filterAssignee ? this.filterAssignee.value : 'all'; 
@@ -229,6 +229,12 @@ class App {
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
                 this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
+                
+                // 🟢 บังคับแก้ไขค่าที่เครื่องเบราว์เซอร์เคยจำผิดไว้ ให้บัญชีพี่กลับมาเป็นผู้ใช้งานปกติ
+                const devMem = this.staff.find(m => m.id === 'dev-chaisith');
+                if (devMem && devMem.isStaffAdmin) {
+                    devMem.isStaffAdmin = false;
+                }
             } catch (e) { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = []; }
         } else { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = []; }
         
@@ -244,6 +250,11 @@ class App {
             const staffRes = await fetch('/api/staff'); if (staffRes.ok) { const data = await staffRes.json(); if (data && data.length > 0) this.staff = data; }
             const tasksRes = await fetch('/api/tasks'); if (tasksRes.ok) { const data = await tasksRes.json(); if (data && data.length > 0) this.tasks = data; }
             this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
+            
+            // 🟢 อัปเดตข้อมูลจากคลาวด์ลงมาแก้สิทธิ์ให้ด้วย
+            const devMem = this.staff.find(m => m.id === 'dev-chaisith');
+            if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
+            
             this.ensureAdminStaff(); this.saveData();
         } catch (err) {}
     }
@@ -278,7 +289,9 @@ class App {
                 this.currentUserAvatar.src = member.avatar; 
                 this.currentUserAvatar.onerror = function() { this.src = 'https://img.icons8.com/color/96/user-male-circle--v1.png'; };
             }
-            if (roleVal === 'leader' || roleVal === 'asst-g3' || roleVal === 'dev-chaisith' || member.isStaffAdmin) {
+            
+            // 🟢 ตรวจสอบความถูกต้องของการมอบหมายสิทธิ์แอดมิน
+            if (member.id === 'leader' || member.id === 'asst-g3' || member.isStaffAdmin) {
                 if(this.leaderNav) this.leaderNav.classList.remove('d-none'); if(this.staffNav) this.staffNav.classList.add('d-none'); if(this.btnCreateTask) this.btnCreateTask.classList.remove('d-none');
                 this.switchView('leader-dashboard', isInitialLoad);
             } else {
@@ -295,10 +308,11 @@ class App {
         if (this.filterSecrecy) this.filterSecrecy.value = 'all';
         if (this.searchTask) this.searchTask.value = '';
         if (this.filterStatus) this.filterStatus.value = statusValue;
-        if (this.filterYear) this.filterYear.value = 'all'; // เคลียร์ปีให้โชว์ทุกงาน
+        if (this.filterYear) this.filterYear.value = 'all';
         
         const member = this.staff.find(m => m.id === this.currentUser);
-        if (member && (member.id === 'leader' || member.id === 'asst-g3' || member.id === 'dev-chaisith' || member.isStaffAdmin)) {
+        // 🟢 ตรวจสอบการอนุญาตเข้าถึงหน้าตาราง
+        if (member && (member.id === 'leader' || member.id === 'asst-g3' || member.isStaffAdmin)) {
             this.switchView('leader-tasks');
             const btnTable = document.getElementById('btnMasterTableMode');
             if(btnTable) btnTable.click(); else this.renderMasterTaskListTable();
@@ -371,7 +385,6 @@ class App {
             btnGantt.addEventListener('click', () => { this.tasksViewMode = 'gantt'; btnTable.className = 'btn btn-secondary'; btnGantt.className = 'btn btn-primary'; document.getElementById('masterTableArea').classList.add('d-none'); document.getElementById('masterGanttArea').classList.remove('d-none'); this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); });
         }
 
-        // 🟢 เพิ่มตัวกรอง "ปี พ.ศ." ให้คอยจับสัญญาณเมื่อมีการเปลี่ยนค่า
         const filters = [this.filterAssignee, this.filterUrgency, this.filterSecrecy, this.filterStatus, this.filterYear];
         filters.forEach(filter => { if(filter) filter.addEventListener('change', () => { if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); else this.renderMasterTaskListTable(); }); });
         if(this.searchTask) this.searchTask.addEventListener('input', () => { if (this.tasksViewMode === 'gantt') this.renderGanttChart('masterGanttChart', this.getFilteredTasks()); else this.renderMasterTaskListTable(); });
@@ -774,7 +787,9 @@ class App {
         if(this.taskDocRefIn) this.taskDocRefIn.value = '';
         if(this.taskDocRefOut) this.taskDocRefOut.value = '';
 
-        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith');
+        const currentMem = this.staff.find(m => m.id === this.currentUser);
+        const isAdmin = currentMem && (currentMem.id === 'leader' || currentMem.id === 'asst-g3' || currentMem.isStaffAdmin);
+        
         if (isAdmin) { this.taskAssigneeInput.value = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3')[0]?.id || ''; this.taskAssigneeInput.disabled = false; } else { this.taskAssigneeInput.value = this.currentUser; this.taskAssigneeInput.disabled = true; }
         this.taskStatusInput.value = 'รอดำเนินการ'; this.taskStatusInput.disabled = false;
         if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid'; if(this.taskPdfInput) this.taskPdfInput.value = ''; if(this.pdfUploadStatus) this.pdfUploadStatus.textContent = 'ไม่มีไฟล์ที่แนบไว้';
@@ -793,7 +808,11 @@ class App {
 
         if(this.taskReceiveDateInput) { this.taskReceiveDateInput.value = task.receiveDate || task.startDate; this.taskStartDateInput.value = task.startDate; this.taskDeadlineInput.value = task.deadline; }
         this.tempSubTasks = task.subTasks ? JSON.parse(JSON.stringify(task.subTasks)) : []; this.renderSubTaskListInModal();
-        const isAdmin = (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith'); this.taskAssigneeInput.disabled = !isAdmin; this.taskStatusInput.disabled = false;
+        
+        const currentMem = this.staff.find(m => m.id === this.currentUser);
+        const isAdmin = currentMem && (currentMem.id === 'leader' || currentMem.id === 'asst-g3' || currentMem.isStaffAdmin);
+        
+        this.taskAssigneeInput.disabled = !isAdmin; this.taskStatusInput.disabled = false;
         if(this.pdfUploadRow) this.pdfUploadRow.style.display = 'grid';
         let fNames = ''; if(task.hasAttachment && task.attachmentName) { try { const arr = JSON.parse(task.attachmentName); fNames = Array.isArray(arr) ? arr.join(', ') : task.attachmentName; } catch(e) { fNames = task.attachmentName; } if(this.pdfUploadStatus) this.pdfUploadStatus.textContent = `ไฟล์แนบปัจจุบัน: ${fNames}`; } else { if(this.pdfUploadStatus) this.pdfUploadStatus.textContent = 'ยังไม่มีไฟล์แนบ'; }
         if(this.taskPdfInput) this.taskPdfInput.value = ''; 
@@ -853,7 +872,6 @@ class App {
         }
         if (lineAlertMessage !== '') this.sendLineAlert(taskObj, lineAlertMessage); this.saveData(); 
         
-        // 🟢 ให้ระบบโหลดปี พ.ศ. ใหม่เผื่อมีการสร้างงานปีใหม่ๆ
         this.populateYearDropdown();
 
         this.closeTaskModal(); 
@@ -869,7 +887,6 @@ class App {
             if (this.isCloudMode) fetch(`/api/tasks?id=${taskId}`, { method: 'DELETE' }).catch(e => e);
             if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
             
-            // 🟢 ให้ระบบอัปเดตช่องปี พ.ศ. เผื่อลบงานปีสุดท้ายทิ้ง
             this.populateYearDropdown();
 
             this.switchView(this.currentView, true); 
@@ -882,8 +899,11 @@ class App {
 
     renderDetailModalFooter(task) {
         if(!this.detailModalFooter) return; this.detailModalFooter.innerHTML = '';
-        if (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith' || task.assigneeId === this.currentUser) {
-            if (task.status === 'รอการอนุมัติ' && (this.currentUser === 'leader' || this.currentUser === 'asst-g3' || this.currentUser === 'dev-chaisith')) {
+        const currentMem = this.staff.find(m => m.id === this.currentUser);
+        const isAdmin = currentMem && (currentMem.id === 'leader' || currentMem.id === 'asst-g3' || currentMem.isStaffAdmin);
+        
+        if (isAdmin || task.assigneeId === this.currentUser) {
+            if (task.status === 'รอการอนุมัติ' && isAdmin) {
                 const btnReject = document.createElement('button'); btnReject.className = 'btn btn-secondary'; btnReject.innerHTML = 'ส่งกลับปรับปรุง'; btnReject.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'กำลังทำ', 'ส่งคืนแผนงานแก้ไข')); this.detailModalFooter.appendChild(btnReject);
                 const btnApprove = document.createElement('button'); btnApprove.className = 'btn btn-success'; btnApprove.innerHTML = 'ลงนามอนุมัติ'; btnApprove.addEventListener('click', () => this.updateTaskStatusAndHistory(task.id, 'เสร็จสิ้น', 'ลงนามอนุมัติ')); this.detailModalFooter.appendChild(btnApprove);
             } else {
@@ -1048,22 +1068,21 @@ class App {
     populateRoleSwitcher() {
         if (!this.roleSelector) return; this.roleSelector.innerHTML = '';
         const groupAdmin = document.createElement('optgroup'); groupAdmin.label = 'ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)';
-        const adminMembers = this.staff.filter(m => m.id === 'leader' || m.id === 'asst-g3' || m.id === 'dev-chaisith' || m.isStaffAdmin);
+        const adminMembers = this.staff.filter(m => m.id === 'leader' || m.id === 'asst-g3' || m.isStaffAdmin);
         adminMembers.sort((a, b) => this.getRawRankWeight(a.name) - this.getRawRankWeight(b.name));
         adminMembers.forEach(member => { const opt = document.createElement('option'); opt.value = member.id; opt.textContent = member.name; if(this.currentUser === member.id) opt.selected = true; groupAdmin.appendChild(opt); });
         this.roleSelector.appendChild(groupAdmin);
         
         const groupStaff = document.createElement('optgroup'); groupStaff.label = 'ระดับเจ้าหน้าที่ฝ่ายยุทธการ';
-        const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && m.id !== 'dev-chaisith' && !m.isStaffAdmin);
+        const generalStaff = this.staff.filter(m => m.id !== 'leader' && m.id !== 'asst-g3' && !m.isStaffAdmin);
         generalStaff.sort((a, b) => this.getRawRankWeight(a.name) - this.getRawRankWeight(b.name));
         generalStaff.forEach(member => { const opt = document.createElement('option'); opt.value = member.id; opt.textContent = member.name; if(this.currentUser === member.id) opt.selected = true; groupStaff.appendChild(opt); });
         this.roleSelector.appendChild(groupStaff);
     }
 
-    // 🟢 ระบบสร้างตัวเลือก "ปี พ.ศ." ให้ผู้ใช้กรองข้อมูล
     populateYearDropdown() {
         if (!this.filterYear) return;
-        const currentSelected = this.filterYear.value; // เก็บค่าที่เลือกไว้เดิม
+        const currentSelected = this.filterYear.value; 
         this.filterYear.innerHTML = '<option value="all">ทั้งหมด</option>';
         
         const years = new Set();
@@ -1074,20 +1093,16 @@ class App {
             } 
         });
         
-        // ถ้ายังไม่มีงานเลย ให้ใส่ปีปัจจุบันเป็นตัวเลือกไว้ก่อน
         if(years.size === 0) years.add(new Date().getFullYear());
-        
-        // เรียงปีจากใหม่สุดไปเก่าสุด
         const sortedYears = Array.from(years).sort((a, b) => b - a);
         
         sortedYears.forEach(yearStr => {
             const opt = document.createElement('option');
             opt.value = yearStr;
-            opt.textContent = parseInt(yearStr) + 543; // แปลงเป็นปี พ.ศ. ให้แสดงผล
+            opt.textContent = parseInt(yearStr) + 543; 
             this.filterYear.appendChild(opt);
         });
         
-        // คืนค่าที่เคยเลือกไว้ ถ้าปีนั้นยังมีอยู่ในระบบ
         if (Array.from(years).includes(parseInt(currentSelected))) {
             this.filterYear.value = currentSelected;
         }
@@ -1109,7 +1124,7 @@ class App {
     render() { 
         this.populateRoleSwitcher(); 
         this.populateAssigneeDropdowns(); 
-        this.populateYearDropdown(); // 🟢 สั่งรันดึงปีตอนโหลดเข้าเว็บ
+        this.populateYearDropdown(); 
         this.switchRole(this.currentUser, true); 
     }
 }
