@@ -52,6 +52,21 @@
         .modal { width: 95% !important; max-width: 850px !important; }
         .modal-body { max-height: 70vh !important; overflow-y: auto !important; padding-right: 10px; }
 
+        /* 🟢 จัดระเบียบแถบคัดกรองใหม่ ให้รองรับ 6 ช่องได้พอดีบน PC */
+        .filter-bar {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 15px !important;
+        }
+        .filter-group {
+            flex: 1 1 120px !important; /* ย่อขยายอัตโนมัติ ให้ช่องไม่บีบเกินไป */
+            min-width: 100px !important;
+        }
+        .filter-group-search {
+            flex: 2 1 250px !important; /* ให้ช่องค้นหากว้างสุดเสมอ */
+            min-width: 200px !important;
+        }
+
         @media (max-width: 768px) {
             #teamProgressTable { display: none !important; }
             #viewLeaderDashboard .table-header { display: none !important; }
@@ -74,6 +89,10 @@
             .modal .form-row { display: flex !important; flex-direction: column !important; gap: 0 !important; }
             .modal .form-row .form-group { width: 100% !important; margin-bottom: 15px !important; }
             .modal-body { max-height: 65vh !important; }
+
+            /* 🟢 บังคับให้ช่องกรองเรียงบรรทัดละ 2 ช่องบนมือถือ เพื่อประหยัดพื้นที่ */
+            .filter-group { flex: 1 1 45% !important; }
+            .filter-group-search { flex: 1 1 100% !important; }
         }
 
         @media (min-width: 769px) {
@@ -101,7 +120,6 @@
                 <div class="custom-select-wrapper"><select id="roleSelector" class="role-selector"></select></div>
             </div>
             <nav class="sidebar-nav">
-                <!-- 🟢 เรียงลำดับเมนูตามที่ขอ -->
                 <div id="leaderNav" class="nav-group">
                     <p class="nav-group-title">ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)</p>
                     <a href="#" class="nav-link active" data-view="leader-dashboard"><i class="fas fa-chart-line"></i><span>ภาพรวมยุทธการ</span></a>
@@ -174,8 +192,9 @@
 
             <section id="viewLeaderTasks" class="content-view d-none">
                 <div class="filter-bar glass-card">
-                    <!-- 🟢 เพิ่มช่องคัดกรอง "ปี พ.ศ." 🟢 -->
+                    <!-- 🟢 เพิ่มช่องคัดกรอง "ปี พ.ศ." ไว้ตำแหน่งแรก 🟢 -->
                     <div class="filter-group"><label>ปี พ.ศ.</label><select id="filterYear" class="form-control"><option value="all">ทั้งหมด</option></select></div>
+                    
                     <div class="filter-group"><label>เจ้าหน้าที่</label><select id="filterAssignee" class="form-control"><option value="all">ทั้งหมด</option></select></div>
                     <div class="filter-group"><label>ความเร่งด่วน</label><select id="filterUrgency" class="form-control"><option value="all">ทั้งหมด</option><option value="ปกติ">ปกติ</option><option value="ด่วน">ด่วน</option><option value="ด่วนมาก">ด่วนมาก</option><option value="ด่วนที่สุด">ด่วนที่สุด</option></select></div>
                     <div class="filter-group"><label>ชั้นความลับ</label><select id="filterSecrecy" class="form-control"><option value="all">ทั้งหมด</option><option value="ปกติ">ปกติ</option><option value="ลับ">ลับ</option><option value="ลับมาก">ลับมาก</option><option value="ลับที่สุด">ลับที่สุด</option></select></div>
@@ -318,6 +337,6 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=930"></script>
+    <script src="app.js?v=931"></script>
 </body>
 </html>
