@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เชื่อมต่อ Google Drive URL ตัวใหม่เรียบร้อยแล้ว
+ * อัปเดตล่าสุด: แก้ไขระบบอัปโหลดภาพ, แจ้งเตือนข้อผิดพลาดชัดเจน และคืนชีพปุ่มดูรูปเก่า
  */
 
 class AttachmentStore {
@@ -60,7 +60,7 @@ class App {
         this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
         this.calendarInstance = null; this.tempSubTasks = []; 
 
-        // 💥💥 URL Google Apps Script ตัวใหม่ของพี่ครับ 💥💥
+        // 💥💥 URL Google Apps Script ล่าสุด 💥💥
         this.GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzvMe5wh0sv_ui1zTwuT2llj4xJbV3VAviBlzC21BT74H6tam7NYNBdUDi7NdxPr9xPrQ/exec'; 
 
         try {
@@ -203,7 +203,7 @@ class App {
         });
     }
 
-    // 🟢 ระบบอัปโหลดเข้า Google Drive พร้อมดักจับ Error
+    // 🟢 ระบบอัปโหลดเข้า Google Drive พร้อมเช็ค Error
     async handleSubTaskImageUpload(e, index) {
         const file = e.target.files[0];
         if (!file) return;
@@ -215,9 +215,9 @@ class App {
 
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> อัปโหลด...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
         btn.disabled = true;
-        this.showToast('กำลังส่งไฟล์ขึ้นระบบ Google Drive...', 'info');
+        this.showToast('ระบบกำลังบีบอัดและส่งรูปภาพเข้า Drive...', 'info');
         
         try {
             const compressedBase64 = await this.compressImage(file);
@@ -229,7 +229,6 @@ class App {
                 base64: base64Data
             };
 
-            // ใช้ text/plain เลี่ยงระบบรักษาความปลอดภัยเบราว์เซอร์ (CORS) ที่ชอบเด้งบล็อก
             const response = await fetch(this.GAS_WEB_APP_URL, {
                 method: 'POST',
                 headers: {
@@ -238,31 +237,33 @@ class App {
                 body: JSON.stringify(payload)
             });
 
-            // ตรวจสอบก่อนว่ามันคืนค่ามาถูกต้องไหม
             const textResult = await response.text();
             let result;
             try {
                 result = JSON.parse(textResult);
             } catch(e) {
                 console.error("Error Log:", textResult);
-                throw new Error("สิทธิ์การเข้าถึง Web App ใน Apps Script ไม่ใช่ 'ทุกคน (Anyone)' หรือเกิดปัญหาขัดข้องจากฝั่ง Google");
+                throw new Error("ข้อผิดพลาดจากฝั่ง Google Drive (อาจเกิดจากสิทธิ์การแชร์ไฟล์)");
             }
 
             if (result.success) {
                 if (this.tempSubTasks && this.tempSubTasks[index]) {
-                    this.tempSubTasks[index].link = result.url;
                     this.tempSubTasks[index].attachedImage = result.url;
+                    
+                    // แปะลงช่องลิงก์ให้ผู้ใช้เห็นด้วยว่าอัปโหลดสำเร็จ
+                    if (!this.tempSubTasks[index].link) {
+                        this.tempSubTasks[index].link = result.url;
+                    }
                     this.renderSubTaskListInModal();
-                    this.showToast('จัดเก็บรูปภาพเข้า Drive เรียบร้อย!', 'success');
+                    this.showToast('อัปโหลดรูปภาพเข้า Drive เรียบร้อย!', 'success');
                 }
             } else {
-                throw new Error("ข้อผิดพลาดจาก Google Drive: " + result.error);
+                throw new Error(result.error);
             }
         } catch (err) {
             console.error(err);
-            // 🟢 เด้งแจ้งเตือนบนหน้าจอคอมเลยว่าทำไมถึงอัปไม่ได้
-            alert("⚠️ เกิดปัญหาการอัปโหลด:\n" + err.message);
-            this.showToast('อัปโหลดล้มเหลว กรุณาตรวจสอบ Error', 'danger');
+            alert("⚠️ ขออภัย อัปโหลดไม่สำเร็จ:\n" + err.message + "\n\n(รูปยังไม่ถูกบันทึก กรุณาลองอัปโหลดใหม่อีกครั้ง)");
+            this.showToast('อัปโหลดรูปภาพล้มเหลว', 'danger');
             btn.innerHTML = ogText;
             btn.disabled = false;
         }
@@ -496,7 +497,8 @@ class App {
             const safeName = sub.name ? sub.name.replace(/"/g, '&quot;') : '';
             const safeLink = sub.link ? sub.link.replace(/"/g, '&quot;') : '';
             
-            const hasImgBadge = sub.attachedImage ? `<a href="${sub.attachedImage}" target="_blank" style="color:#10b981; font-size:11px; margin-left:8px; text-decoration:none;"><i class="fas fa-check-circle"></i> ตรวจสอบรูป</a>` : '';
+            // ป้ายบอกว่ามีรูปแนบไว้แล้ว
+            const hasImgBadge = sub.attachedImage && sub.attachedImage.startsWith('http') ? `<span style="color:#10b981; font-size:10px; margin-left:8px;"><i class="fas fa-check-circle"></i> ส่งเข้า Drive แล้ว</span>` : '';
             
             item.innerHTML = `
                 <div style="display:flex; flex-direction: column; flex-grow:1; margin-right:10px; background: rgba(0,0,0,0.15); padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; transition: border 0.2s;">
@@ -515,7 +517,7 @@ class App {
                                placeholder="วางลิงก์ไฟล์ (ถ้ามี)...">
                         
                         <input type="file" id="subTaskFile_${index}" accept="image/*" style="display:none;" onchange="app.handleSubTaskImageUpload(event, ${index})">
-                        <button type="button" id="btnUploadImg_${index}" style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:#3b82f6; border-radius:4px; padding:3px 8px; font-size:10px; cursor:pointer;" onclick="document.getElementById('subTaskFile_${index}').click()"><i class="fas fa-upload"></i> อัปโหลดรูป</button>
+                        <button type="button" id="btnUploadImg_${index}" style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:#3b82f6; border-radius:4px; padding:3px 8px; font-size:10px; cursor:pointer; min-width: 80px;" onclick="document.getElementById('subTaskFile_${index}').click()"><i class="fas fa-upload"></i> อัปโหลดรูป</button>
                         ${hasImgBadge}
                     </div>
                 </div>
@@ -553,6 +555,27 @@ class App {
             if (!isDetailOpen) { this.viewTaskDetails(taskId); }
             
             if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
+        }
+    }
+
+    // 🟢 ระบบคืนชีพปุ่มดูภาพเก่า เผื่อพี่มีภาพที่เคยเซฟค้างไว้ในระบบ
+    viewSubTaskImage(subId) {
+        let foundImg = null;
+        for (let t of this.tasks) {
+            if (t.subTasks) {
+                let sub = t.subTasks.find(s => s.id === subId);
+                if (sub && sub.attachedImage) { foundImg = sub.attachedImage; break; }
+            }
+        }
+        if (foundImg) {
+            if (foundImg.startsWith('http')) {
+                window.open(foundImg, '_blank');
+            } else {
+                const win = window.open();
+                win.document.write(`<body style="margin:0; background:#0f172a; display:flex; justify-content:center; align-items:center; height:100vh;"><img src="${foundImg}" style="max-width:100%; max-height:100vh; object-fit:contain; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></body>`);
+            }
+        } else {
+            this.showToast('ไม่พบรูปภาพ หรือรูปภาพถูกลบไปแล้ว', 'warning');
         }
     }
 
@@ -742,14 +765,25 @@ class App {
                     const item = document.createElement('label'); item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
                     const textStyle = sub.isDone ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc; font-weight: 500;';
                     
-                    const linkBtnHtml = sub.link && sub.link !== '' ? `<a href="${sub.link}" target="_blank" style="margin-left:auto; font-size: 11px; font-weight:600; color: #ffffff; background: #3b82f6; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(59,130,246,0.3);"><i class="fas fa-external-link-alt"></i> เปิดไฟล์แนบ</a>` : '';
+                    // 🟢 โชว์ปุ่มดูภาพและเปิดลิงก์แบบครอบคลุมทั้งรูปเก่าและรูปใหม่จาก Drive
+                    let buttonsHtml = '';
+                    if (sub.link && sub.link !== '' && sub.link !== sub.attachedImage) {
+                        buttonsHtml += `<a href="${sub.link}" target="_blank" style="margin-left:auto; font-size: 11px; font-weight:600; color: #ffffff; background: #3b82f6; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(59,130,246,0.3);"><i class="fas fa-link"></i> ลิงก์แนบ</a>`;
+                    }
+                    if (sub.attachedImage) {
+                        const isBase64 = sub.attachedImage.startsWith('data:image');
+                        const targetUrl = isBase64 ? '#' : sub.attachedImage;
+                        const clickAction = isBase64 ? `onclick="event.preventDefault(); app.viewSubTaskImage('${sub.id}')"` : `target="_blank"`;
+                        
+                        buttonsHtml += `<a href="${targetUrl}" ${clickAction} style="margin-left:${buttonsHtml ? '5px' : 'auto'}; font-size: 11px; font-weight:600; color: #ffffff; background: #10b981; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(16,185,129,0.3);"><i class="fas fa-image"></i> ดูรูปภาพ</a>`;
+                    }
                     
                     item.innerHTML = `
                         <div style="display:flex; align-items:center; flex-grow: 1; flex-wrap: wrap; gap: 8px;">
                             <input type="checkbox" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer; margin-right: 4px;" ${sub.isDone ? 'checked' : ''} onchange="app.toggleSubTaskStatus('${task.id}', '${sub.id}', this.checked)">
                             <span style="${textStyle}; flex-grow:1;">${sub.name}</span>
                             <div style="display:flex;">
-                                ${linkBtnHtml}
+                                ${buttonsHtml}
                             </div>
                         </div>
                     `; 
