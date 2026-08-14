@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: ทะลวงแคช Cloudflare 100% (Anti-Cache) ป้องกันมือถือดึงข้อมูลเก่ามาเซฟทับ
+ * อัปเดตล่าสุด: เพิ่มระบบป้องกันเซิร์ฟเวอร์ดรอปข้อมูล (Force JSON Parse)
  */
 
 class AttachmentStore {
@@ -206,16 +206,11 @@ class App {
         const file = e.target.files[0];
         if (!file) return;
         
-        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
-            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
-            return;
-        }
-
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
         btn.disabled = true;
-        this.showToast('ระบบกำลังบีบอัดและส่งรูปภาพเข้า Drive...', 'info');
+        this.showToast('ระบบกำลังส่งรูปภาพเข้า Drive...', 'info');
         
         try {
             const compressedBase64 = await this.compressImage(file);
@@ -350,7 +345,14 @@ class App {
                 const parsed = JSON.parse(storedData);
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-                this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
+                
+                // 🟢 แปลงขยะ String ให้กลับมาเป็น Array กิจย่อย (ถ้าเซิร์ฟเวอร์ทำพังมาก่อนหน้า)
+                this.tasks.forEach(t => { 
+                    if (typeof t.subTasks === 'string') {
+                        try { t.subTasks = JSON.parse(t.subTasks); } catch(e) { t.subTasks = []; }
+                    }
+                    if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; 
+                });
                 
                 const devMem = this.staff.find(m => m.id === 'dev-chaisith');
                 if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
@@ -366,7 +368,6 @@ class App {
     async syncWithCloudflare() {
         this.isCloudMode = window.location.protocol.startsWith('http'); if (!this.isCloudMode) return;
         try {
-            // 🟢 ระบบทะลวงแคช (Cache-Busting) บังคับโหลดข้อมูลล่าสุดเสมอ
             const staffRes = await fetch('/api/staff?nocache=' + Date.now(), { cache: 'no-store' }); 
             if (staffRes.ok) { 
                 const data = await staffRes.json(); 
@@ -377,8 +378,13 @@ class App {
             if (tasksRes.ok) { 
                 const data = await tasksRes.json(); 
                 if (data && data.length > 0) {
-                    // 🟢 Smart Merge ปกป้องข้อมูลกันเซิร์ฟเวอร์ตีกลับลบของเดิม
                     this.tasks = data.map(serverTask => {
+                        // 🟢 บังคับแปลภาษา (Parse) ถ้าเซิร์ฟเวอร์ตีกลับมาเป็น String
+                        if (typeof serverTask.subTasks === 'string') {
+                            try { serverTask.subTasks = JSON.parse(serverTask.subTasks); } 
+                            catch(e) { serverTask.subTasks = []; }
+                        }
+
                         const localTask = this.tasks.find(t => t.id === serverTask.id);
                         if (localTask) {
                             if (!serverTask.subTasks || serverTask.subTasks.length === 0) serverTask.subTasks = localTask.subTasks || [];
@@ -386,7 +392,7 @@ class App {
                             if (!serverTask.docRefIn) serverTask.docRefIn = localTask.docRefIn || '';
                             if (!serverTask.docRefOut) serverTask.docRefOut = localTask.docRefOut || '';
                         }
-                        if (!serverTask.subTasks) serverTask.subTasks = [];
+                        if (!serverTask.subTasks || !Array.isArray(serverTask.subTasks)) serverTask.subTasks = [];
                         return serverTask;
                     });
                 }
@@ -396,7 +402,7 @@ class App {
             if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
             
             this.ensureAdminStaff(); this.saveData();
-        } catch (err) {}
+        } catch (err) { console.error("Sync Error:", err); }
     }
 
     switchView(viewName, isPopState = false) {
@@ -861,7 +867,16 @@ class App {
                         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์เก่า...';
                         try {
                             const record = await this.attachments.getAttachment(task.id);
-                            if (record) { let fileDataToOpen = null; if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData; else if (record.fileData) fileDataToOpen = record.fileData; if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); else alert('ไม่พบข้อมูลไฟล์แนบนี้'); } else { alert('ไม่พบไฟล์แนบในฐานข้อมูล'); }
+                            if (record) { 
+                                let fileDataToOpen = null; 
+                                if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData; 
+                                else if (record.fileData) fileDataToOpen = record.fileData; 
+                                
+                                if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); 
+                                else alert('⚠️ ไม่พบข้อมูลไฟล์ในเครื่อง\n(ไฟล์อาจถูกลบไปแล้ว กรุณาแนบไฟล์ใหม่อีกครั้งครับ)'); 
+                            } else { 
+                                alert('⚠️ ไม่พบไฟล์นี้ในระบบ\n\nสาเหตุ: ไฟล์นี้เป็นไฟล์เก่าที่บันทึกก่อนอัปเดตระบบ หรือถูกลบออกจากเครื่องไปแล้ว\n\n💡 วิธีแก้ไข: กรุณากดปุ่ม "แก้ไขภารกิจ" แล้วแนบไฟล์นี้เข้าไปใหม่อีกครั้ง ระบบจะทำการจัดเก็บขึ้น Google Drive ส่วนกลางให้อย่างถาวรครับ 🫡'); 
+                            }
                         } catch (err) {} finally { btn.disabled = false; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`; }
                     }
                 }); 
@@ -1109,7 +1124,10 @@ class App {
         this.populateYearDropdown();
 
         this.closeTaskModal(); 
-        if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskObj) }).catch(err => err); }
+        if (this.isCloudMode) {
+            // บังคับให้เป็น Header มาตรฐานเพื่อไม่ให้เซิร์ฟเวอร์ปฏิเสธ Array กิจย่อย
+            fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskObj) }).catch(err => err); 
+        }
         if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
         this.switchView(this.currentView, true); 
         this.showToast(id ? 'อัปเดตข้อมูลสำเร็จ' : 'มอบหมายงานสำเร็จ');
@@ -1254,7 +1272,7 @@ class App {
             const oldStatus = task.status; task.status = newStatus; 
             if (!task.history) task.history = []; task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
             this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"ผ่านกระดาน Kanban`);
-            this.saveData(); this.renderStaffKanban(); if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); 
+            this.saveData(); this.renderStaffKanban(); if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }); 
         } 
     }
 
