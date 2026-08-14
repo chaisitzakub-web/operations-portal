@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เพิ่มระบบ Data Normalizer แก้ปัญหาข้อมูลพัง ซิงค์คอม-มือถือ 100%
+ * อัปเดตล่าสุด: แก้ไขบั๊กจอดำ + เพิ่ม Data Normalizer ซิงค์ข้อมูลข้ามเครื่องสมบูรณ์ 100%
  */
 
 class AttachmentStore {
@@ -94,6 +94,40 @@ class App {
         } catch (err) { console.error(err); alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message); }
     }
 
+    // 🟢 ระบบเครื่องยนต์แปลภาษาที่หายไป! (ตัวนี้ล่ะครับที่ทำหน้าจอดำ)
+    parseDataSafe(data) {
+        if (Array.isArray(data)) return data;
+        if (!data || data === '[]') return [];
+        if (typeof data === 'string') {
+            try {
+                let parsed = JSON.parse(data);
+                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                return Array.isArray(parsed) ? parsed : [parsed];
+            } catch(e) { return [data]; }
+        }
+        return [data];
+    }
+
+    normalizeTask(task) {
+        if (!task) return task;
+        task.subTasks = this.parseDataSafe(task.subTasks).filter(s => s && typeof s === 'object' && s.name);
+        task.history = this.parseDataSafe(task.history).filter(h => h && typeof h === 'object' && h.time);
+        
+        task.attachmentName = this.parseDataSafe(task.attachmentName);
+        task.attachmentUrls = this.parseDataSafe(task.attachmentUrls);
+        
+        if (task.attachmentName.length > 0 || task.attachmentUrls.length > 0) {
+            task.hasAttachment = true;
+        } else {
+            task.hasAttachment = false;
+        }
+
+        task.docRefIn = task.docRefIn || '';
+        task.docRefOut = task.docRefOut || '';
+
+        return task;
+    }
+
     initDOMElements() {
         this.sidebar = document.getElementById('sidebar'); this.roleSelector = document.getElementById('roleSelector');
         this.leaderNav = document.getElementById('leaderNav'); this.staffNav = document.getElementById('staffNav');
@@ -161,41 +195,6 @@ class App {
         this.pdfButtonsContainer = document.getElementById('pdfButtonsContainer'); this.toastContainer = document.getElementById('toastContainer');
     }
 
-    // 🟢 ระบบเครื่องยนต์แปลภาษา (Data Normalizer) แก้ปัญหาข้อมูลพัง 100%
-    normalizeTask(task) {
-        if (!task) return task;
-        
-        const safeParseArray = (val) => {
-            if (Array.isArray(val)) return val;
-            if (!val || val === '[]') return [];
-            if (typeof val === 'string') {
-                try {
-                    let parsed = JSON.parse(val);
-                    if (typeof parsed === 'string') parsed = JSON.parse(parsed); // แก้บั๊กซ้อน String
-                    return Array.isArray(parsed) ? parsed : [parsed];
-                } catch(e) { return [val]; } // ถ้าเป็นแค่ชื่อไฟล์ธรรมดา ให้จับใส่ Array
-            }
-            return [val];
-        };
-
-        task.subTasks = safeParseArray(task.subTasks).filter(s => s && typeof s === 'object' && s.name);
-        task.history = safeParseArray(task.history).filter(h => h && typeof h === 'object' && h.time);
-        
-        task.attachmentName = safeParseArray(task.attachmentName);
-        task.attachmentUrls = safeParseArray(task.attachmentUrls);
-        
-        if (task.attachmentName.length > 0 || task.attachmentUrls.length > 0) {
-            task.hasAttachment = true;
-        } else {
-            task.hasAttachment = false;
-        }
-
-        task.docRefIn = task.docRefIn || '';
-        task.docRefOut = task.docRefOut || '';
-
-        return task;
-    }
-
     ensureAdminStaff() {
         if (!this.staff || !Array.isArray(this.staff)) this.staff = [];
         if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
@@ -247,6 +246,11 @@ class App {
         const file = e.target.files[0];
         if (!file) return;
         
+        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
+            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
+            return;
+        }
+
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
@@ -386,7 +390,7 @@ class App {
                 const parsed = JSON.parse(storedData);
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-                this.tasks = this.tasks.map(t => this.normalizeTask(t)); // 🟢 ฆ่าเชื้อข้อมูลก่อนใช้งาน
+                this.tasks = this.tasks.map(t => this.normalizeTask(t)); 
                 
                 const devMem = this.staff.find(m => m.id === 'dev-chaisith');
                 if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
@@ -402,8 +406,12 @@ class App {
     syncTaskToServer(task) {
         if (!this.isCloudMode) return;
         try {
-            // 🟢 โยนข้อมูลที่ซ่อมแซมแล้วขึ้นเซิร์ฟเวอร์แบบตรงๆ ไม่ง้อการ Stringify ซ้อน
             const cleanTask = this.normalizeTask(JSON.parse(JSON.stringify(task)));
+            cleanTask.subTasks = JSON.stringify(cleanTask.subTasks);
+            cleanTask.history = JSON.stringify(cleanTask.history);
+            cleanTask.attachmentName = JSON.stringify(cleanTask.attachmentName);
+            cleanTask.attachmentUrls = JSON.stringify(cleanTask.attachmentUrls);
+            
             fetch('/api/tasks', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -427,8 +435,21 @@ class App {
             if (tasksRes.ok) { 
                 const data = await tasksRes.json(); 
                 if (Array.isArray(data)) {
-                    // 🟢 โหลดข้อมูลมาจากเซิร์ฟเวอร์ปุ๊บ เอาเข้าเครื่องกรองทันที!
-                    this.tasks = data.map(serverTask => this.normalizeTask(serverTask));
+                    this.tasks = data.map(serverTask => {
+                        let cleanServerTask = this.normalizeTask(serverTask);
+                        const localTask = this.tasks.find(t => t.id === cleanServerTask.id);
+                        if (localTask) {
+                            if (cleanServerTask.subTasks.length === 0 && localTask.subTasks && localTask.subTasks.length > 0) {
+                                cleanServerTask.subTasks = localTask.subTasks;
+                            }
+                            if (!cleanServerTask.attachmentUrls || cleanServerTask.attachmentUrls.length === 0) {
+                                cleanServerTask.attachmentUrls = localTask.attachmentUrls || [];
+                            }
+                            if (!cleanServerTask.docRefIn) cleanServerTask.docRefIn = localTask.docRefIn || '';
+                            if (!cleanServerTask.docRefOut) cleanServerTask.docRefOut = localTask.docRefOut || '';
+                        }
+                        return cleanServerTask;
+                    });
                 }
             }
             
@@ -853,12 +874,11 @@ class App {
             const progress = this.getTaskProgress(task); subTaskPctText.textContent = `${progress}%`; subTaskBar.style.width = `${progress}%`;
             subTasksContainer.innerHTML = '';
             
-            // 🟢 ตรวจสอบให้ชัวร์ว่ามีข้อมูลถึงจะแสดงผล
             if (!task.subTasks || !Array.isArray(task.subTasks) || task.subTasks.length === 0) { 
                 subTasksContainer.innerHTML = '<span style="color: #64748b; font-size: 13px; font-style: italic;">ภารกิจนี้ไม่มีการแบ่งกิจย่อยไว้</span>'; 
             } else {
                 task.subTasks.forEach((sub) => {
-                    if (!sub || typeof sub !== 'object') return; // กันพังถ้าข้อมูลเสีย
+                    if (!sub || typeof sub !== 'object') return; 
                     const item = document.createElement('label'); item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
                     const textStyle = sub.isDone ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc; font-weight: 500;';
                     
@@ -888,7 +908,6 @@ class App {
             }
         }
 
-        // 🟢 ระบบดึงไฟล์ PDF ที่ปรับปรุงแล้ว
         if (task.hasAttachment && task.attachmentName && task.attachmentName.length > 0 && this.detailPdfItem && this.pdfButtonsContainer) {
             this.detailPdfItem.classList.remove('d-none'); 
             this.pdfButtonsContainer.innerHTML = ''; 
@@ -1141,8 +1160,8 @@ class App {
                 let uploadedUrls = await this.processMainPdfUploads(files, finalTaskId);
                 
                 taskObj.hasAttachment = true; 
-                taskObj.attachmentName = fileNamesArray; // เก็บเป็น Array ตรงๆ เลย!
-                taskObj.attachmentUrls = uploadedUrls;   // เก็บเป็น Array ตรงๆ เลย!
+                taskObj.attachmentName = fileNamesArray; 
+                taskObj.attachmentUrls = uploadedUrls; 
                 if (!taskObj.history) taskObj.history = []; 
                 taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสารเข้า Drive ${files.length} ฉบับ`, user: logUser }); 
                 lineAlertMessage += ` (แนบเอกสาร ${files.length} ฉบับ)`;
