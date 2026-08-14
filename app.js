@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: บังคับเชื่อข้อมูลเซิร์ฟเวอร์ 100% + เพิ่มปุ่มปฐมพยาบาล (Emergency Reset)
+ * อัปเดตล่าสุด: ท่าไม้ตาย "Trojan Horse" ซ่อนข้อมูลกิจย่อยและประวัติลงใน Description เพื่อหลบหลีกการถูก Server ลบทิ้ง 100%
  */
 
 class AttachmentStore {
@@ -98,7 +98,7 @@ class App {
         } catch (err) { console.error(err); alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message); }
     }
 
-    // 🟢 ระบบแปลภาษาแบบรัดกุมที่สุด
+    // 🟢 ระบบกรองข้อมูล (ทำให้มั่นใจว่าข้อมูลไม่พัง)
     parseDataSafe(data) {
         if (Array.isArray(data)) return data;
         if (!data || data === '[]' || data === '') return [];
@@ -112,20 +112,33 @@ class App {
         return [data];
     }
 
+    // 🟢 ระบบแกะกล่องม้าโทรจัน (Unpack) เพื่อให้แสดงผลได้ปกติ
     normalizeTask(task) {
         if (!task) return task;
+        
+        // ถ้าเซิร์ฟเวอร์มีของซ่อนอยู่ใน Description ให้แกะออกมาใช้!
+        if (task.description && task.description.includes('\n\n---META---\n')) {
+            let parts = task.description.split('\n\n---META---\n');
+            task.description = parts[0]; // คืนค่า Description ล้วนๆ ให้ผู้ใช้เห็น
+            try {
+                let metaObj = JSON.parse(parts[1]);
+                task.subTasks = metaObj.subTasks || [];
+                task.history = metaObj.history || [];
+                task.attachmentName = metaObj.attachmentName || [];
+                task.attachmentUrls = metaObj.attachmentUrls || [];
+                task.docRefIn = metaObj.docRefIn || '';
+                task.docRefOut = metaObj.docRefOut || '';
+                task.hasAttachment = metaObj.hasAttachment || false;
+            } catch(e) {}
+        }
+
+        // กรองความปลอดภัยด่านสุดท้าย
         task.subTasks = this.parseDataSafe(task.subTasks).filter(s => s && typeof s === 'object' && s.name);
         task.history = this.parseDataSafe(task.history).filter(h => h && typeof h === 'object' && h.time);
-        
         task.attachmentName = this.parseDataSafe(task.attachmentName);
         task.attachmentUrls = this.parseDataSafe(task.attachmentUrls);
         
-        if (task.attachmentName.length > 0 || task.attachmentUrls.length > 0) {
-            task.hasAttachment = true;
-        } else {
-            task.hasAttachment = false;
-        }
-
+        task.hasAttachment = (task.attachmentName.length > 0 || task.attachmentUrls.length > 0);
         task.docRefIn = task.docRefIn || '';
         task.docRefOut = task.docRefOut || '';
 
@@ -198,7 +211,6 @@ class App {
         this.pdfUploadStatus = document.getElementById('pdfUploadStatus'); this.detailPdfItem = document.getElementById('detailPdfItem');
         this.pdfButtonsContainer = document.getElementById('pdfButtonsContainer'); this.toastContainer = document.getElementById('toastContainer');
 
-        // 💥💥 ปล่อยพลัง! ปุ่มฉุกเฉินล้างข้อมูลเครื่อง (Emergency Reset) 💥💥
         const headerRight = document.querySelector('.header-right');
         if (headerRight && !document.getElementById('emergencyResetBtn')) {
             const resetBtn = document.createElement('button');
@@ -432,19 +444,30 @@ class App {
 
     saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks })); }
 
+    // 🟢 ระบบห่อของขวัญ (Trojan Horse) ก่อนโยนขึ้นเซิร์ฟเวอร์
     syncTaskToServer(task) {
         if (!this.isCloudMode) return;
         try {
-            const cleanTask = this.normalizeTask(JSON.parse(JSON.stringify(task)));
-            cleanTask.subTasks = JSON.stringify(cleanTask.subTasks);
-            cleanTask.history = JSON.stringify(cleanTask.history);
-            cleanTask.attachmentName = JSON.stringify(cleanTask.attachmentName);
-            cleanTask.attachmentUrls = JSON.stringify(cleanTask.attachmentUrls);
+            const payload = JSON.parse(JSON.stringify(task));
+            
+            // นำของที่มีค่าทั้งหมด (กิจย่อย+ประวัติ+ลิงก์) ยัดรวมกันในกล่องเดียว
+            let metaObj = {
+                subTasks: payload.subTasks || [],
+                history: payload.history || [],
+                attachmentName: payload.attachmentName || [],
+                attachmentUrls: payload.attachmentUrls || [],
+                docRefIn: payload.docRefIn || '',
+                docRefOut: payload.docRefOut || '',
+                hasAttachment: payload.hasAttachment || false
+            };
+            
+            // ต่อท้ายไว้หลังช่อง Description แบบลับๆ
+            payload.description = (payload.description || '') + '\n\n---META---\n' + JSON.stringify(metaObj);
             
             fetch('/api/tasks', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(cleanTask) 
+                body: JSON.stringify(payload) 
             }).catch(e => console.error(e));
         } catch (e) { console.error("Sync payload error:", e); }
     }
@@ -463,11 +486,10 @@ class App {
             const tasksRes = await fetch('/api/tasks?nocache=' + Date.now(), { cache: 'no-store' }); 
             if (tasksRes.ok) { 
                 const data = await tasksRes.json(); 
-                // 💥 บังคับให้โหลดข้อมูลจาก Server 100% ห้ามเอามือถือเป็นใหญ่เด็ดขาด!
                 if (Array.isArray(data)) {
                     this.tasks = data.map(serverTask => this.normalizeTask(serverTask));
                 } else {
-                    this.tasks = []; // ถ้า Server ส่งก้อนว่างมา ก็แปลว่าลบงานทิ้งหมดแล้วจริงๆ
+                    this.tasks = []; 
                 }
             }
             
@@ -1084,6 +1106,10 @@ class App {
     openCreateTaskModal() {
         if (!this.taskModal) return; this.taskForm.reset(); this.taskModalTitle.innerHTML = 'มอบหมายภารกิจยุทธการใหม่'; this.taskIdField.value = '';
         this.tempSubTasks = []; this.renderSubTaskListInModal();
+        
+        const subInput = document.getElementById('inputSubTaskName');
+        if (subInput) subInput.value = '';
+
         if(this.taskReceiveDateInput) { const today = new Date().toISOString().split('T')[0]; this.taskReceiveDateInput.value = today; this.taskStartDateInput.value = today; this.taskDeadlineInput.value = today; }
         
         if(this.taskDocRefIn) this.taskDocRefIn.value = '';
@@ -1109,8 +1135,12 @@ class App {
         if(this.taskDocRefOut) this.taskDocRefOut.value = task.docRefOut || '';
 
         if(this.taskReceiveDateInput) { this.taskReceiveDateInput.value = task.receiveDate || task.startDate; this.taskStartDateInput.value = task.startDate; this.taskDeadlineInput.value = task.deadline; }
-        this.tempSubTasks = task.subTasks ? JSON.parse(JSON.stringify(task.subTasks)) : []; this.renderSubTaskListInModal();
+        this.tempSubTasks = task.subTasks ? JSON.parse(JSON.stringify(task.subTasks)) : []; 
+        this.renderSubTaskListInModal();
         
+        const subInput = document.getElementById('inputSubTaskName');
+        if (subInput) subInput.value = '';
+
         const currentMem = this.staff.find(m => m.id === this.currentUser);
         const isAdmin = currentMem && (currentMem.id === 'leader' || currentMem.id === 'asst-g3' || currentMem.isStaffAdmin);
         
@@ -1135,6 +1165,7 @@ class App {
 
         if (new Date(startDate) < new Date(receiveDate)) { alert('ข้อผิดพลาด: วันที่เริ่มปฏิบัติงาน ต้องไม่ก่อนวันที่เอกสารเข้า'); return; } if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง ต้องไม่ก่อนวันเริ่มต้นปฏิบัติงาน'); return; }
         
+        // 🟢 ดักจับกิจย่อยที่พิมพ์ค้างไว้แต่ลืมกด + ก่อนกดบันทึก
         const subInput = document.getElementById('inputSubTaskName');
         if (subInput && subInput.value.trim() !== '') {
             this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: subInput.value.trim(), isDone: false, link: '', attachedImage: '' });
@@ -1198,7 +1229,7 @@ class App {
 
         this.closeTaskModal(); 
         
-        this.syncTaskToServer(taskObj);
+        this.syncTaskToServer(taskObj); // ส่งข้อมูลที่ห่อ Trojan Horse แล้วขึ้น Server
         
         if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
         this.switchView(this.currentView, true); 
