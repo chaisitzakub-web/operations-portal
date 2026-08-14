@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เพิ่มระบบ "แนบรูปภาพ" พร้อมตัวบีบอัดในกิจย่อย (Subtasks) และอัปโหลดเข้า Google Drive ของหน่วย
+ * อัปเดตล่าสุด: เชื่อมต่อ Google Drive URL ตัวใหม่เรียบร้อยแล้ว
  */
 
 class AttachmentStore {
@@ -60,8 +60,8 @@ class App {
         this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
         this.calendarInstance = null; this.tempSubTasks = []; 
 
-        // 💥💥 นำ URL ที่ได้จาก Google Apps Script มาวางในบรรทัดนี้ครับ 💥💥
-        this.GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx3S-htCkZ1O7E8MLpc9EMTvpf8xv4PF6CWWKP0axBslLAgESRzgDdSj8qMaPg1O8LeYQ/exec'; 
+        // 💥💥 URL Google Apps Script ตัวใหม่ของพี่ครับ 💥💥
+        this.GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzvMe5wh0sv_ui1zTwuT2llj4xJbV3VAviBlzC21BT74H6tam7NYNBdUDi7NdxPr9xPrQ/exec'; 
 
         try {
             this.initDOMElements(); this.loadData(); this.setupEventListeners(); this.startClock();
@@ -203,7 +203,7 @@ class App {
         });
     }
 
-    // 🟢 ระบบอัปโหลดเข้า Google Drive โดยตรง!
+    // 🟢 ระบบอัปโหลดเข้า Google Drive พร้อมดักจับ Error
     async handleSubTaskImageUpload(e, index) {
         const file = e.target.files[0];
         if (!file) return;
@@ -229,27 +229,40 @@ class App {
                 base64: base64Data
             };
 
+            // ใช้ text/plain เลี่ยงระบบรักษาความปลอดภัยเบราว์เซอร์ (CORS) ที่ชอบเด้งบล็อก
             const response = await fetch(this.GAS_WEB_APP_URL, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
                 body: JSON.stringify(payload)
             });
 
-            const result = await response.json();
+            // ตรวจสอบก่อนว่ามันคืนค่ามาถูกต้องไหม
+            const textResult = await response.text();
+            let result;
+            try {
+                result = JSON.parse(textResult);
+            } catch(e) {
+                console.error("Error Log:", textResult);
+                throw new Error("สิทธิ์การเข้าถึง Web App ใน Apps Script ไม่ใช่ 'ทุกคน (Anyone)' หรือเกิดปัญหาขัดข้องจากฝั่ง Google");
+            }
 
             if (result.success) {
                 if (this.tempSubTasks && this.tempSubTasks[index]) {
-                    // 🟢 เซฟลิงก์ Drive ใส่ช่อง url เลย! พื้นที่ไม่เต็มแน่นอน
                     this.tempSubTasks[index].link = result.url;
-                    this.tempSubTasks[index].attachedImage = result.url; // มาร์คไว้ว่าเป็นภาพ
+                    this.tempSubTasks[index].attachedImage = result.url;
                     this.renderSubTaskListInModal();
-                    this.showToast('จัดเก็บรูปภาพขึ้นระบบเรียบร้อย!', 'success');
+                    this.showToast('จัดเก็บรูปภาพเข้า Drive เรียบร้อย!', 'success');
                 }
             } else {
-                throw new Error(result.error);
+                throw new Error("ข้อผิดพลาดจาก Google Drive: " + result.error);
             }
         } catch (err) {
             console.error(err);
-            this.showToast('อัปโหลดล้มเหลว กรุณาลองใหม่', 'danger');
+            // 🟢 เด้งแจ้งเตือนบนหน้าจอคอมเลยว่าทำไมถึงอัปไม่ได้
+            alert("⚠️ เกิดปัญหาการอัปโหลด:\n" + err.message);
+            this.showToast('อัปโหลดล้มเหลว กรุณาตรวจสอบ Error', 'danger');
             btn.innerHTML = ogText;
             btn.disabled = false;
         }
@@ -483,7 +496,6 @@ class App {
             const safeName = sub.name ? sub.name.replace(/"/g, '&quot;') : '';
             const safeLink = sub.link ? sub.link.replace(/"/g, '&quot;') : '';
             
-            // ป้ายบอกว่ามีรูปแนบไว้แล้ว
             const hasImgBadge = sub.attachedImage ? `<a href="${sub.attachedImage}" target="_blank" style="color:#10b981; font-size:11px; margin-left:8px; text-decoration:none;"><i class="fas fa-check-circle"></i> ตรวจสอบรูป</a>` : '';
             
             item.innerHTML = `
@@ -732,16 +744,12 @@ class App {
                     
                     const linkBtnHtml = sub.link && sub.link !== '' ? `<a href="${sub.link}" target="_blank" style="margin-left:auto; font-size: 11px; font-weight:600; color: #ffffff; background: #3b82f6; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(59,130,246,0.3);"><i class="fas fa-external-link-alt"></i> เปิดไฟล์แนบ</a>` : '';
                     
-                    // 🟢 โชว์ปุ่มดูภาพ ที่ดึงมาจาก Google Drive
-                    const imgBtnHtml = sub.attachedImage ? `<a href="${sub.attachedImage}" target="_blank" style="margin-left:${sub.link ? '5px' : 'auto'}; font-size: 11px; font-weight:600; color: #ffffff; background: #10b981; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(16,185,129,0.3);"><i class="fas fa-image"></i> ดูรูปภาพ</a>` : '';
-
                     item.innerHTML = `
                         <div style="display:flex; align-items:center; flex-grow: 1; flex-wrap: wrap; gap: 8px;">
                             <input type="checkbox" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer; margin-right: 4px;" ${sub.isDone ? 'checked' : ''} onchange="app.toggleSubTaskStatus('${task.id}', '${sub.id}', this.checked)">
                             <span style="${textStyle}; flex-grow:1;">${sub.name}</span>
                             <div style="display:flex;">
                                 ${linkBtnHtml}
-                                ${imgBtnHtml}
                             </div>
                         </div>
                     `; 
