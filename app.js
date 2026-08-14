@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เพิ่มระบบป้องกันเซิร์ฟเวอร์ดรอปข้อมูล (Force JSON Parse)
+ * อัปเดตล่าสุด: แก้ไขบั๊กฐานข้อมูล (Force JSON Payload) ป้องกันเซิร์ฟเวอร์ลบกิจย่อยและประวัติทิ้ง
  */
 
 class AttachmentStore {
@@ -206,6 +206,11 @@ class App {
         const file = e.target.files[0];
         if (!file) return;
         
+        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
+            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
+            return;
+        }
+
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
@@ -346,12 +351,16 @@ class App {
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
                 
-                // 🟢 แปลงขยะ String ให้กลับมาเป็น Array กิจย่อย (ถ้าเซิร์ฟเวอร์ทำพังมาก่อนหน้า)
                 this.tasks.forEach(t => { 
                     if (typeof t.subTasks === 'string') {
                         try { t.subTasks = JSON.parse(t.subTasks); } catch(e) { t.subTasks = []; }
                     }
                     if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; 
+                    
+                    if (typeof t.history === 'string') {
+                        try { t.history = JSON.parse(t.history); } catch(e) { t.history = []; }
+                    }
+                    if (!t.history || !Array.isArray(t.history)) t.history = []; 
                 });
                 
                 const devMem = this.staff.find(m => m.id === 'dev-chaisith');
@@ -364,6 +373,30 @@ class App {
     }
 
     saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks })); }
+
+    // 🟢 ระบบส่งข้อมูลขึ้นเซิร์ฟเวอร์แบบ "กันข้อมูลแตก" (Force JSON Payload)
+    syncTaskToServer(task) {
+        if (!this.isCloudMode) return;
+        try {
+            // ก๊อปปี้ข้อมูลเพื่อไม่ให้กระทบการโชว์ผลบนหน้าจอ
+            const payload = JSON.parse(JSON.stringify(task));
+            
+            // 💥 แปลงกล่องข้อมูล (Array) ให้เป็นตัวหนังสือ (String) 💥
+            // ป้องกันเซิร์ฟเวอร์ตีกลับและทำลายข้อมูลเราทิ้ง!
+            if (payload.subTasks && typeof payload.subTasks !== 'string') {
+                payload.subTasks = JSON.stringify(payload.subTasks);
+            }
+            if (payload.history && typeof payload.history !== 'string') {
+                payload.history = JSON.stringify(payload.history);
+            }
+            
+            fetch('/api/tasks', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload) 
+            }).catch(e => console.error(e));
+        } catch (e) { console.error("Sync payload error:", e); }
+    }
 
     async syncWithCloudflare() {
         this.isCloudMode = window.location.protocol.startsWith('http'); if (!this.isCloudMode) return;
@@ -379,10 +412,14 @@ class App {
                 const data = await tasksRes.json(); 
                 if (data && data.length > 0) {
                     this.tasks = data.map(serverTask => {
-                        // 🟢 บังคับแปลภาษา (Parse) ถ้าเซิร์ฟเวอร์ตีกลับมาเป็น String
+                        // 🟢 แปลงตัวหนังสือจากเซิร์ฟเวอร์ กลับมาเป็นกล่องข้อมูลให้แอปอ่านออก
                         if (typeof serverTask.subTasks === 'string') {
                             try { serverTask.subTasks = JSON.parse(serverTask.subTasks); } 
                             catch(e) { serverTask.subTasks = []; }
+                        }
+                        if (typeof serverTask.history === 'string') {
+                            try { serverTask.history = JSON.parse(serverTask.history); } 
+                            catch(e) { serverTask.history = []; }
                         }
 
                         const localTask = this.tasks.find(t => t.id === serverTask.id);
@@ -393,6 +430,7 @@ class App {
                             if (!serverTask.docRefOut) serverTask.docRefOut = localTask.docRefOut || '';
                         }
                         if (!serverTask.subTasks || !Array.isArray(serverTask.subTasks)) serverTask.subTasks = [];
+                        if (!serverTask.history || !Array.isArray(serverTask.history)) serverTask.history = [];
                         return serverTask;
                     });
                 }
@@ -611,7 +649,7 @@ class App {
             const isDetailOpen = this.taskDetailModal && this.taskDetailModal.classList.contains('show');
             if (!isDetailOpen) { this.viewTaskDetails(taskId); }
             
-            if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
+            this.syncTaskToServer(task); // 🟢 ใช้ตัวดึงข้อมูลแบบปลอดภัย
         }
     }
 
@@ -1124,10 +1162,10 @@ class App {
         this.populateYearDropdown();
 
         this.closeTaskModal(); 
-        if (this.isCloudMode) {
-            // บังคับให้เป็น Header มาตรฐานเพื่อไม่ให้เซิร์ฟเวอร์ปฏิเสธ Array กิจย่อย
-            fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(taskObj) }).catch(err => err); 
-        }
+        
+        // 🟢 ส่งข้อมูลที่แปลงภาษาแล้วขึ้นเซิร์ฟเวอร์
+        this.syncTaskToServer(taskObj);
+        
         if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
         this.switchView(this.currentView, true); 
         this.showToast(id ? 'อัปเดตข้อมูลสำเร็จ' : 'มอบหมายงานสำเร็จ');
@@ -1183,7 +1221,10 @@ class App {
         if (!task.history) task.history = []; task.history.push({ time: now.toISOString(), action: `${actionDescription} ("${oldStatus}" -> "${newStatus}")`, user: logUser });
         this.sendLineAlert(task, `สถานะเปลี่ยนเป็น "${newStatus}"`); this.saveData(); 
         this.closeDetailModal();
-        if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
+        
+        // 🟢 ส่งข้อมูลที่แปลงภาษาแล้วขึ้นเซิร์ฟเวอร์
+        this.syncTaskToServer(task);
+        
         if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
         this.switchView(this.currentView, true); 
         this.showToast(`บันทึกสถานะ: ${newStatus}`);
@@ -1272,7 +1313,8 @@ class App {
             const oldStatus = task.status; task.status = newStatus; 
             if (!task.history) task.history = []; task.history.push({ time: new Date().toISOString(), action: `ย้ายสถานะจาก "${oldStatus}" ไปยัง "${newStatus}" (Drag & Drop)`, user: this.currentUserName.textContent });
             this.sendLineAlert(task, `เปลี่ยนสถานะเป็น "${newStatus}"ผ่านกระดาน Kanban`);
-            this.saveData(); this.renderStaffKanban(); if (this.isCloudMode) fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }); 
+            this.saveData(); this.renderStaffKanban(); 
+            this.syncTaskToServer(task); // 🟢 ใช้ตัวดึงข้อมูลแบบปลอดภัย 
         } 
     }
 
