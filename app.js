@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: แก้ไขบั๊กจอดำ + เพิ่ม Data Normalizer ซิงค์ข้อมูลข้ามเครื่องสมบูรณ์ 100%
+ * อัปเดตล่าสุด: บังคับเชื่อข้อมูลเซิร์ฟเวอร์ 100% + เพิ่มปุ่มปฐมพยาบาล (Emergency Reset)
  */
 
 class AttachmentStore {
@@ -63,7 +63,11 @@ class App {
         this.GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzvMe5wh0sv_ui1zTwuT2llj4xJbV3VAviBlzC21BT74H6tam7NYNBdUDi7NdxPr9xPrQ/exec'; 
 
         try {
-            this.initDOMElements(); this.loadData(); this.setupEventListeners(); this.startClock();
+            this.initDOMElements(); 
+            this.loadData(); 
+            this.setupEventListeners(); 
+            this.startClock();
+            
             this.attachments = new AttachmentStore();
             this.attachments.init().then(async () => { await this.syncWithCloudflare(); this.render(); })
             .catch(async err => { console.warn("DB Storage Error", err); await this.syncWithCloudflare(); this.render(); });
@@ -94,10 +98,10 @@ class App {
         } catch (err) { console.error(err); alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message); }
     }
 
-    // 🟢 ระบบเครื่องยนต์แปลภาษาที่หายไป! (ตัวนี้ล่ะครับที่ทำหน้าจอดำ)
+    // 🟢 ระบบแปลภาษาแบบรัดกุมที่สุด
     parseDataSafe(data) {
         if (Array.isArray(data)) return data;
-        if (!data || data === '[]') return [];
+        if (!data || data === '[]' || data === '') return [];
         if (typeof data === 'string') {
             try {
                 let parsed = JSON.parse(data);
@@ -193,6 +197,36 @@ class App {
         this.pdfUploadRow = document.getElementById('pdfUploadRow'); this.taskPdfInput = document.getElementById('taskPdf');
         this.pdfUploadStatus = document.getElementById('pdfUploadStatus'); this.detailPdfItem = document.getElementById('detailPdfItem');
         this.pdfButtonsContainer = document.getElementById('pdfButtonsContainer'); this.toastContainer = document.getElementById('toastContainer');
+
+        // 💥💥 ปล่อยพลัง! ปุ่มฉุกเฉินล้างข้อมูลเครื่อง (Emergency Reset) 💥💥
+        const headerRight = document.querySelector('.header-right');
+        if (headerRight && !document.getElementById('emergencyResetBtn')) {
+            const resetBtn = document.createElement('button');
+            resetBtn.id = 'emergencyResetBtn';
+            resetBtn.className = 'btn btn-danger';
+            resetBtn.style.marginRight = '10px';
+            resetBtn.innerHTML = '<i class="fas fa-sync-alt"></i> <span class="hide-on-mobile">ซ่อมแซมแอป</span>';
+            resetBtn.onclick = () => {
+                if(confirm('ระบบจะล้างความจำเก่าที่ค้างในมือถือ และดึงข้อมูลที่ถูกต้องจากส่วนกลางมาใหม่ทั้งหมด ยืนยันหรือไม่?')) {
+                    localStorage.clear();
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                            for(let registration of registrations) { registration.unregister(); }
+                        });
+                    }
+                    if (window.caches) {
+                        caches.keys().then(function(names) {
+                            for (let name of names) { caches.delete(name); }
+                        });
+                    }
+                    this.showToast('กำลังล้างความจำและรีสตาร์ทระบบ...', 'info');
+                    setTimeout(() => {
+                        window.location.href = window.location.pathname + '?reload=' + Date.now();
+                    }, 1000);
+                }
+            };
+            headerRight.insertBefore(resetBtn, headerRight.firstChild);
+        }
     }
 
     ensureAdminStaff() {
@@ -246,11 +280,6 @@ class App {
         const file = e.target.files[0];
         if (!file) return;
         
-        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
-            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
-            return;
-        }
-
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
@@ -434,22 +463,11 @@ class App {
             const tasksRes = await fetch('/api/tasks?nocache=' + Date.now(), { cache: 'no-store' }); 
             if (tasksRes.ok) { 
                 const data = await tasksRes.json(); 
+                // 💥 บังคับให้โหลดข้อมูลจาก Server 100% ห้ามเอามือถือเป็นใหญ่เด็ดขาด!
                 if (Array.isArray(data)) {
-                    this.tasks = data.map(serverTask => {
-                        let cleanServerTask = this.normalizeTask(serverTask);
-                        const localTask = this.tasks.find(t => t.id === cleanServerTask.id);
-                        if (localTask) {
-                            if (cleanServerTask.subTasks.length === 0 && localTask.subTasks && localTask.subTasks.length > 0) {
-                                cleanServerTask.subTasks = localTask.subTasks;
-                            }
-                            if (!cleanServerTask.attachmentUrls || cleanServerTask.attachmentUrls.length === 0) {
-                                cleanServerTask.attachmentUrls = localTask.attachmentUrls || [];
-                            }
-                            if (!cleanServerTask.docRefIn) cleanServerTask.docRefIn = localTask.docRefIn || '';
-                            if (!cleanServerTask.docRefOut) cleanServerTask.docRefOut = localTask.docRefOut || '';
-                        }
-                        return cleanServerTask;
-                    });
+                    this.tasks = data.map(serverTask => this.normalizeTask(serverTask));
+                } else {
+                    this.tasks = []; // ถ้า Server ส่งก้อนว่างมา ก็แปลว่าลบงานทิ้งหมดแล้วจริงๆ
                 }
             }
             
