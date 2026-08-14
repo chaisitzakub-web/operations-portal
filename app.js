@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: ท่าไม้ตาย "Trojan Horse" ซ่อนข้อมูลกิจย่อยและประวัติลงใน Description เพื่อหลบหลีกการถูก Server ลบทิ้ง 100%
+ * อัปเดตล่าสุด: ท่าไม้ตาย "Base64 Encryption" เข้ารหัสข้อมูลกิจย่อย/PDF ป้องกันเซิร์ฟเวอร์ทำข้อมูลพัง 100%
  */
 
 class AttachmentStore {
@@ -51,7 +51,6 @@ const DEFAULT_STAFF = [
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
     { id: 'staff-3', name: 'ร.ท. หญิง อารีรัตน์ ใจดี', role: 'นายทหารสื่อสารและการประสานงาน', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=areerat', rankWeight: 40, lineUserId: '' }
 ];
-const DEFAULT_TASKS = [];
 
 class App {
     constructor() {
@@ -98,50 +97,69 @@ class App {
         } catch (err) { console.error(err); alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message); }
     }
 
-    // 🟢 ระบบกรองข้อมูล (ทำให้มั่นใจว่าข้อมูลไม่พัง)
-    parseDataSafe(data) {
-        if (Array.isArray(data)) return data;
-        if (!data || data === '[]' || data === '') return [];
-        if (typeof data === 'string') {
-            try {
-                let parsed = JSON.parse(data);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                return Array.isArray(parsed) ? parsed : [parsed];
-            } catch(e) { return [data]; }
-        }
-        return [data];
+    // 🟢 ระบบเข้ารหัสข้อมูล (Pack) ซ่อนเซิร์ฟเวอร์
+    packTaskData(task) {
+        let payload = JSON.parse(JSON.stringify(task));
+        let meta = {
+            subTasks: payload.subTasks || [],
+            history: payload.history || [],
+            attachmentName: payload.attachmentName || [],
+            attachmentUrls: payload.attachmentUrls || [],
+            docRefIn: payload.docRefIn || '',
+            docRefOut: payload.docRefOut || '',
+            hasAttachment: !!payload.hasAttachment
+        };
+        
+        // ล้างรหัสเก่าทิ้งก่อน (ถ้ามี)
+        let cleanDesc = (payload.description || '').replace(/\n\n\[META:.*\]$/, '');
+        
+        try {
+            // แปลงเป็นภาษาต่างดาว (Base64) เพื่อหลอกเซิร์ฟเวอร์
+            let encodedMeta = btoa(encodeURIComponent(JSON.stringify(meta)));
+            payload.description = cleanDesc + '\n\n[META:' + encodedMeta + ']';
+        } catch(e) {}
+        
+        // ทำลายข้อมูลในช่องเดิมทิ้ง ป้องกันเซิร์ฟเวอร์ตีกลับ
+        payload.subTasks = "[]"; 
+        payload.history = "[]";
+        payload.attachmentName = "[]";
+        payload.attachmentUrls = "[]";
+
+        return payload;
     }
 
-    // 🟢 ระบบแกะกล่องม้าโทรจัน (Unpack) เพื่อให้แสดงผลได้ปกติ
-    normalizeTask(task) {
+    // 🟢 ระบบถอดรหัสข้อมูล (Unpack) ดึงความจริงกลับมาแสดงบนจอ
+    unpackTaskData(task) {
         if (!task) return task;
+        let cleanDesc = task.description || '';
+        const metaMatch = cleanDesc.match(/\n\n\[META:(.*)\]$/);
         
-        // ถ้าเซิร์ฟเวอร์มีของซ่อนอยู่ใน Description ให้แกะออกมาใช้!
-        if (task.description && task.description.includes('\n\n---META---\n')) {
-            let parts = task.description.split('\n\n---META---\n');
-            task.description = parts[0]; // คืนค่า Description ล้วนๆ ให้ผู้ใช้เห็น
-            try {
-                let metaObj = JSON.parse(parts[1]);
-                task.subTasks = metaObj.subTasks || [];
-                task.history = metaObj.history || [];
-                task.attachmentName = metaObj.attachmentName || [];
-                task.attachmentUrls = metaObj.attachmentUrls || [];
-                task.docRefIn = metaObj.docRefIn || '';
-                task.docRefOut = metaObj.docRefOut || '';
-                task.hasAttachment = metaObj.hasAttachment || false;
-            } catch(e) {}
-        }
-
-        // กรองความปลอดภัยด่านสุดท้าย
-        task.subTasks = this.parseDataSafe(task.subTasks).filter(s => s && typeof s === 'object' && s.name);
-        task.history = this.parseDataSafe(task.history).filter(h => h && typeof h === 'object' && h.time);
-        task.attachmentName = this.parseDataSafe(task.attachmentName);
-        task.attachmentUrls = this.parseDataSafe(task.attachmentUrls);
-        
-        task.hasAttachment = (task.attachmentName.length > 0 || task.attachmentUrls.length > 0);
+        // ตั้งค่าเริ่มต้นกันข้อมูลพัง
+        task.subTasks = Array.isArray(task.subTasks) ? task.subTasks : [];
+        task.history = Array.isArray(task.history) ? task.history : [];
+        task.attachmentName = Array.isArray(task.attachmentName) ? task.attachmentName : [];
+        task.attachmentUrls = Array.isArray(task.attachmentUrls) ? task.attachmentUrls : [];
         task.docRefIn = task.docRefIn || '';
         task.docRefOut = task.docRefOut || '';
+        task.hasAttachment = task.hasAttachment || false;
 
+        // ถ้าเจอรหัสลับ ให้ถอดรหัสออกมาใช้งาน!
+        if (metaMatch) {
+            try {
+                const metaStr = decodeURIComponent(atob(metaMatch[1]));
+                const meta = JSON.parse(metaStr);
+                task.subTasks = meta.subTasks || [];
+                task.history = meta.history || [];
+                task.attachmentName = meta.attachmentName || [];
+                task.attachmentUrls = meta.attachmentUrls || [];
+                task.docRefIn = meta.docRefIn || '';
+                task.docRefOut = meta.docRefOut || '';
+                task.hasAttachment = meta.hasAttachment || false;
+                
+                // ตัดรหัสลับออกจากคำอธิบาย เพื่อไม่ให้ผู้ใช้เห็น
+                task.description = cleanDesc.replace(/\n\n\[META:.*\]$/, ''); 
+            } catch(e) { console.error("Unpack error", e); }
+        }
         return task;
     }
 
@@ -292,6 +310,11 @@ class App {
         const file = e.target.files[0];
         if (!file) return;
         
+        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
+            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
+            return;
+        }
+
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
@@ -431,7 +454,7 @@ class App {
                 const parsed = JSON.parse(storedData);
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-                this.tasks = this.tasks.map(t => this.normalizeTask(t)); 
+                this.tasks = this.tasks.map(t => this.unpackTaskData(t)); // 🟢 ถอดรหัสทันทีที่เปิดแอป
                 
                 const devMem = this.staff.find(m => m.id === 'dev-chaisith');
                 if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
@@ -444,25 +467,10 @@ class App {
 
     saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks })); }
 
-    // 🟢 ระบบห่อของขวัญ (Trojan Horse) ก่อนโยนขึ้นเซิร์ฟเวอร์
     syncTaskToServer(task) {
         if (!this.isCloudMode) return;
         try {
-            const payload = JSON.parse(JSON.stringify(task));
-            
-            // นำของที่มีค่าทั้งหมด (กิจย่อย+ประวัติ+ลิงก์) ยัดรวมกันในกล่องเดียว
-            let metaObj = {
-                subTasks: payload.subTasks || [],
-                history: payload.history || [],
-                attachmentName: payload.attachmentName || [],
-                attachmentUrls: payload.attachmentUrls || [],
-                docRefIn: payload.docRefIn || '',
-                docRefOut: payload.docRefOut || '',
-                hasAttachment: payload.hasAttachment || false
-            };
-            
-            // ต่อท้ายไว้หลังช่อง Description แบบลับๆ
-            payload.description = (payload.description || '') + '\n\n---META---\n' + JSON.stringify(metaObj);
+            const payload = this.packTaskData(task); // 🟢 เข้ารหัสลับก่อนโยนขึ้นคลาวด์
             
             fetch('/api/tasks', { 
                 method: 'POST', 
@@ -487,7 +495,7 @@ class App {
             if (tasksRes.ok) { 
                 const data = await tasksRes.json(); 
                 if (Array.isArray(data)) {
-                    this.tasks = data.map(serverTask => this.normalizeTask(serverTask));
+                    this.tasks = data.map(serverTask => this.unpackTaskData(serverTask)); // 🟢 ถอดรหัสลับจากคลาวด์
                 } else {
                     this.tasks = []; 
                 }
@@ -948,6 +956,7 @@ class App {
             }
         }
 
+        // 🟢 แก้ไขปุ่มเปิด PDF (ให้ใช้งาน URL ตรงๆ จาก Google Drive เสมอ)
         if (task.hasAttachment && task.attachmentName && task.attachmentName.length > 0 && this.detailPdfItem && this.pdfButtonsContainer) {
             this.detailPdfItem.classList.remove('d-none'); 
             this.pdfButtonsContainer.innerHTML = ''; 
@@ -957,9 +966,10 @@ class App {
                 btn.addEventListener('click', async () => {
                     const fileUrl = task.attachmentUrls && task.attachmentUrls[index] ? task.attachmentUrls[index] : null;
                     if (fileUrl && fileUrl.startsWith('http')) {
+                        // ถ้าเจอลิงก์ Drive เปิดเลย! ไม่ต้องง้อระบบเก่า
                         window.open(fileUrl, '_blank');
                     } else {
-                        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์...';
+                        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ค้นหาไฟล์เก่า...';
                         try {
                             const record = await this.attachments.getAttachment(task.id);
                             if (record) { 
@@ -968,9 +978,9 @@ class App {
                                 else if (record.fileData) fileDataToOpen = record.fileData; 
                                 
                                 if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); 
-                                else alert('⚠️ ไม่พบข้อมูลไฟล์ในเครื่อง\n(กรุณาให้ผู้ส่งงานแก้ไขแล้วแนบไฟล์อีกครั้งครับ)'); 
+                                else alert('⚠️ ไม่พบข้อมูลไฟล์\n(รบกวนแก้ไขภารกิจและแนบ PDF ใหม่อีกครั้งครับ)'); 
                             } else { 
-                                alert('⚠️ ไม่พบไฟล์นี้ในระบบ\n\nสาเหตุ: เป็นไฟล์เก่าก่อนอัปเดตระบบ หรือไฟล์ยังไม่ถูกอัปโหลดขึ้น Drive\n\n💡 วิธีแก้ไข: กรุณากด "แก้ไขภารกิจ" แล้วแนบไฟล์เดิมซ้ำอีกครั้ง เพื่ออัปโหลดขึ้น Drive ถาวรครับ 🫡'); 
+                                alert('⚠️ ไม่พบไฟล์ PDF นี้ในระบบ\n\nสาเหตุ: เป็นข้อมูลก่อนอัปเดตระบบ\n💡 วิธีแก้ไข: กรุณากด "แก้ไขภารกิจ" แล้วอัปโหลด PDF นี้เข้าไปใหม่ครับ 🫡'); 
                             }
                         } catch (err) {} finally { btn.disabled = false; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`; }
                     }
@@ -1165,7 +1175,6 @@ class App {
 
         if (new Date(startDate) < new Date(receiveDate)) { alert('ข้อผิดพลาด: วันที่เริ่มปฏิบัติงาน ต้องไม่ก่อนวันที่เอกสารเข้า'); return; } if (new Date(deadline) < new Date(startDate)) { alert('ข้อผิดพลาด: วันกำหนดส่ง ต้องไม่ก่อนวันเริ่มต้นปฏิบัติงาน'); return; }
         
-        // 🟢 ดักจับกิจย่อยที่พิมพ์ค้างไว้แต่ลืมกด + ก่อนกดบันทึก
         const subInput = document.getElementById('inputSubTaskName');
         if (subInput && subInput.value.trim() !== '') {
             this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: subInput.value.trim(), isDone: false, link: '', attachedImage: '' });
@@ -1229,7 +1238,7 @@ class App {
 
         this.closeTaskModal(); 
         
-        this.syncTaskToServer(taskObj); // ส่งข้อมูลที่ห่อ Trojan Horse แล้วขึ้น Server
+        this.syncTaskToServer(taskObj);
         
         if (this.calendarInstance) this.calendarInstance.refetchEvents(); 
         this.switchView(this.currentView, true); 
