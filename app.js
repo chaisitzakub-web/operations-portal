@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: ถอดสิทธิ์แอดมินบังคับ ให้ จ.ส.ท. ชัยสิทธิ์ กลับมาอยู่หมวดเจ้าหน้าที่เพื่อดูกระดานคัมบังได้
+ * อัปเดตล่าสุด: เพิ่มระบบ "แนบรูปภาพ" พร้อมตัวบีบอัดในกิจย่อย (Subtasks)
  */
 
 class AttachmentStore {
@@ -46,7 +46,6 @@ class AttachmentStore {
 const DEFAULT_STAFF = [
     { id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 },
     { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 },
-    // 🟢 ปรับให้เป็นเจ้าหน้าที่ปกติ isStaffAdmin = false
     { id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'เสมียนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: false, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' },
     { id: 'staff-1', name: 'พ.ต. สมศักดิ์ รักชาติ', role: 'หัวหน้าชุดวางแผนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=somsak', rankWeight: 20, lineUserId: '' },
     { id: 'staff-2', name: 'ร.อ. วิชัย กล้าหาญ', role: 'นายทหารปฏิบัติการข่าวกรอง', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wichai', rankWeight: 30, lineUserId: '' },
@@ -158,7 +157,6 @@ class App {
         if (!this.staff || !Array.isArray(this.staff)) this.staff = [];
         if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
         if (!this.staff.find(m => m.id === 'asst-g3')) this.staff.splice(1, 0, { id: 'asst-g3', name: 'ผช.หน.ฝยก.พล.ร.4', role: 'ผช.หน.ฝยก.พล.ร.4 (Asst. G3)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=asstg3', isStaffAdmin: true, rankWeight: 2 });
-        // 🟢 เปลี่ยนสถานะตั้งต้นให้บัญชีของพี่ไม่ถูกล็อกเป็นแอดมินสูงสุด
         if (!this.staff.find(m => m.id === 'dev-chaisith')) this.staff.push({ id: 'dev-chaisith', name: 'จ.ส.ท. ชัยสิทธิ์ ศรีอ่อนทอง', role: 'เสมียนยุทธการ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=chaisith', isStaffAdmin: false, rankWeight: 70, lineUserId: 'U093959610f37c88a31fe2911a7dd4bdd' });
     }
 
@@ -175,6 +173,49 @@ class App {
         toast.innerHTML = `<i class="fas ${iconClass} toast-icon"></i><span class="toast-msg">${message}</span>`;
         this.toastContainer.appendChild(toast);
         setTimeout(() => { toast.style.animation = 'toast-in 0.3s reverse forwards'; setTimeout(() => toast.remove(), 300); }, 3500);
+    }
+
+    // 🟢 ระบบบีบอัดรูปภาพก่อนเซฟ (ป้องกันเว็บพังความจำเต็ม)
+    compressImage(file, maxWidth = 800, quality = 0.6) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+            };
+        });
+    }
+
+    // 🟢 ฟังก์ชันอัปโหลดและเซฟรูปของกิจย่อย
+    async handleSubTaskImageUpload(e, index) {
+        const file = e.target.files[0];
+        if (!file) return;
+        this.showToast('กำลังบีบอัดและแนบรูปภาพ...', 'info');
+        try {
+            const compressedBase64 = await this.compressImage(file);
+            if (this.tempSubTasks && this.tempSubTasks[index]) {
+                this.tempSubTasks[index].attachedImage = compressedBase64;
+                this.renderSubTaskListInModal();
+                this.showToast('แนบรูปภาพสำเร็จ!', 'success');
+            }
+        } catch (err) {
+            this.showToast('เกิดข้อผิดพลาดในการแนบรูป', 'danger');
+        }
     }
 
     getTaskProgress(task) {
@@ -230,11 +271,8 @@ class App {
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
                 this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
                 
-                // 🟢 บังคับแก้ไขค่าที่เครื่องเบราว์เซอร์เคยจำผิดไว้ ให้บัญชีพี่กลับมาเป็นผู้ใช้งานปกติ
                 const devMem = this.staff.find(m => m.id === 'dev-chaisith');
-                if (devMem && devMem.isStaffAdmin) {
-                    devMem.isStaffAdmin = false;
-                }
+                if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
             } catch (e) { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = []; }
         } else { this.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF)); this.tasks = []; }
         
@@ -251,7 +289,6 @@ class App {
             const tasksRes = await fetch('/api/tasks'); if (tasksRes.ok) { const data = await tasksRes.json(); if (data && data.length > 0) this.tasks = data; }
             this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
             
-            // 🟢 อัปเดตข้อมูลจากคลาวด์ลงมาแก้สิทธิ์ให้ด้วย
             const devMem = this.staff.find(m => m.id === 'dev-chaisith');
             if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
             
@@ -290,7 +327,6 @@ class App {
                 this.currentUserAvatar.onerror = function() { this.src = 'https://img.icons8.com/color/96/user-male-circle--v1.png'; };
             }
             
-            // 🟢 ตรวจสอบความถูกต้องของการมอบหมายสิทธิ์แอดมิน
             if (member.id === 'leader' || member.id === 'asst-g3' || member.isStaffAdmin) {
                 if(this.leaderNav) this.leaderNav.classList.remove('d-none'); if(this.staffNav) this.staffNav.classList.add('d-none'); if(this.btnCreateTask) this.btnCreateTask.classList.remove('d-none');
                 this.switchView('leader-dashboard', isInitialLoad);
@@ -308,10 +344,9 @@ class App {
         if (this.filterSecrecy) this.filterSecrecy.value = 'all';
         if (this.searchTask) this.searchTask.value = '';
         if (this.filterStatus) this.filterStatus.value = statusValue;
-        if (this.filterYear) this.filterYear.value = 'all';
+        if (this.filterYear) this.filterYear.value = 'all'; 
         
         const member = this.staff.find(m => m.id === this.currentUser);
-        // 🟢 ตรวจสอบการอนุญาตเข้าถึงหน้าตาราง
         if (member && (member.id === 'leader' || member.id === 'asst-g3' || member.isStaffAdmin)) {
             this.switchView('leader-tasks');
             const btnTable = document.getElementById('btnMasterTableMode');
@@ -350,7 +385,7 @@ class App {
                     const name = inputSub.value.trim();
                     if (name) {
                         if (!this.tempSubTasks) this.tempSubTasks = [];
-                        this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: name, isDone: false });
+                        this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: name, isDone: false, link: '', attachedImage: '' });
                         inputSub.value = ''; this.renderSubTaskListInModal();
                     }
                 }
@@ -364,7 +399,7 @@ class App {
                     const name = inputSub.value.trim();
                     if (name) {
                         if (!this.tempSubTasks) this.tempSubTasks = [];
-                        this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: name, isDone: false });
+                        this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: name, isDone: false, link: '', attachedImage: '' });
                         inputSub.value = ''; this.renderSubTaskListInModal();
                     }
                 }
@@ -399,6 +434,7 @@ class App {
         });
     }
 
+    // 🟢 อัปเดตกล่องแสดงผลกิจย่อย ให้มีปุ่มแนบไฟล์รูป
     renderSubTaskListInModal() {
         const container = document.getElementById('subTaskListContainer'); if (!container) return;
         container.innerHTML = '';
@@ -409,15 +445,32 @@ class App {
             const item = document.createElement('div');
             item.style = 'display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 6px;';
             const safeName = sub.name ? sub.name.replace(/"/g, '&quot;') : '';
+            const safeLink = sub.link ? sub.link.replace(/"/g, '&quot;') : '';
+            
+            // ป้ายบอกว่ามีรูปแนบไว้แล้ว
+            const hasImgBadge = sub.attachedImage ? `<span style="color:#10b981; font-size:10px; margin-left:8px;"><i class="fas fa-check-circle"></i> มีรูปแล้ว</span>` : '';
+            
             item.innerHTML = `
-                <div style="display:flex; align-items:center; flex-grow:1; margin-right:10px; background: rgba(0,0,0,0.15); padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; transition: border 0.2s;">
-                    <i class="fas fa-pen" style="font-size: 11px; margin-right: 10px; color: #3b82f6;"></i>
-                    <input type="text" value="${safeName}" 
-                           oninput="app.updateTempSubTask(${index}, this.value)" 
-                           style="flex-grow:1; background:transparent; border:none; color:var(--text-primary); outline:none; font-family:'Prompt', sans-serif; font-size:13.5px; width:100%;"
-                           onfocus="this.parentElement.style.border='1px dashed #3b82f6'"
-                           onblur="this.parentElement.style.border='1px solid transparent'"
-                           placeholder="พิมพ์เพื่อแก้ไขกิจย่อย...">
+                <div style="display:flex; flex-direction: column; flex-grow:1; margin-right:10px; background: rgba(0,0,0,0.15); padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; transition: border 0.2s;">
+                    <div style="display:flex; align-items:center; width:100%;">
+                        <i class="fas fa-pen" style="font-size: 11px; margin-right: 10px; color: #3b82f6;"></i>
+                        <input type="text" value="${safeName}" 
+                               oninput="app.updateTempSubTask(${index}, this.value)" 
+                               style="flex-grow:1; background:transparent; border:none; color:var(--text-primary); outline:none; font-family:'Prompt', sans-serif; font-size:13.5px; width:100%;"
+                               placeholder="พิมพ์เพื่อแก้ไขกิจย่อย...">
+                    </div>
+                    <div style="display:flex; align-items:center; width:100%; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.05);">
+                        <i class="fas fa-link" style="font-size: 10px; margin-right: 10px; color: #94a3b8;"></i>
+                        <input type="text" value="${safeLink}" 
+                               oninput="app.updateTempSubTaskLink(${index}, this.value)" 
+                               style="flex-grow:1; background:transparent; border:none; color:#60a5fa; outline:none; font-family:'Prompt', sans-serif; font-size:11px; width:100%;"
+                               placeholder="วางลิงก์แนบเอกสาร (ถ้ามี)...">
+                        
+                        <!-- 🟢 ปุ่มแนบรูปภาพโดยเฉพาะ -->
+                        <input type="file" id="subTaskFile_${index}" accept="image/*" style="display:none;" onchange="app.handleSubTaskImageUpload(event, ${index})">
+                        <button type="button" style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:#3b82f6; border-radius:4px; padding:3px 8px; font-size:10px; cursor:pointer;" onclick="document.getElementById('subTaskFile_${index}').click()"><i class="fas fa-image"></i> แนบรูป</button>
+                        ${hasImgBadge}
+                    </div>
                 </div>
                 <button type="button" style="background:transparent; border:none; color:#ef4444; cursor:pointer; padding:6px;" onclick="app.removeTempSubTask(${index})" title="ลบกิจย่อย">
                     <i class="fas fa-trash-can" style="font-size: 14px;"></i>
@@ -428,9 +481,11 @@ class App {
     }
 
     updateTempSubTask(index, newValue) {
-        if (this.tempSubTasks && this.tempSubTasks[index]) {
-            this.tempSubTasks[index].name = newValue.trim();
-        }
+        if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks[index].name = newValue.trim(); }
+    }
+    
+    updateTempSubTaskLink(index, newLink) {
+        if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks[index].link = newLink.trim(); }
     }
 
     removeTempSubTask(index) { if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks.splice(index, 1); this.renderSubTaskListInModal(); } }
@@ -595,6 +650,23 @@ class App {
         if (this.kanbanDone) this.populateKanbanColumn(this.kanbanDone, done);
     }
 
+    // 🟢 ระบบกดดูรูปภาพในกิจย่อย (เด้งขึ้นหน้าต่างใหม่)
+    viewSubTaskImage(subId) {
+        let foundImg = null;
+        for (let t of this.tasks) {
+            if (t.subTasks) {
+                let sub = t.subTasks.find(s => s.id === subId);
+                if (sub && sub.attachedImage) { foundImg = sub.attachedImage; break; }
+            }
+        }
+        if (foundImg) {
+            const win = window.open();
+            win.document.write(`<body style="margin:0; background:#0f172a; display:flex; justify-content:center; align-items:center; height:100vh;"><img src="${foundImg}" style="max-width:100%; max-height:100vh; object-fit:contain; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></body>`);
+        } else {
+            this.showToast('ไม่พบรูปภาพ หรือรูปภาพหมดอายุ', 'warning');
+        }
+    }
+
     viewTaskDetails(taskId) {
         const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         const member = this.staff.find(m => m.id === task.assigneeId) || { name: 'ไม่มีผู้รับผิดชอบ', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=none' };
@@ -636,7 +708,22 @@ class App {
                 task.subTasks.forEach((sub) => {
                     const item = document.createElement('label'); item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
                     const textStyle = sub.isDone ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc; font-weight: 500;';
-                    item.innerHTML = `<input type="checkbox" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer;" ${sub.isDone ? 'checked' : ''} onchange="app.toggleSubTaskStatus('${task.id}', '${sub.id}', this.checked)"><span style="${textStyle}">${sub.name}</span>`; subTasksContainer.appendChild(item);
+                    
+                    // 🟢 โชว์ปุ่มดูภาพ หรือ เปิดลิงก์เอกสาร
+                    const linkBtnHtml = sub.link ? `<a href="${sub.link}" target="_blank" style="margin-left:auto; font-size: 11px; font-weight:600; color: #ffffff; background: #3b82f6; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(59,130,246,0.3);"><i class="fas fa-external-link-alt"></i> เปิดไฟล์</a>` : '';
+                    const imgBtnHtml = sub.attachedImage ? `<button type="button" onclick="app.viewSubTaskImage('${sub.id}')" style="margin-left:${sub.link ? '5px' : 'auto'}; font-size: 11px; font-weight:600; color: #ffffff; background: #10b981; padding: 4px 10px; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 2px 5px rgba(16,185,129,0.3);"><i class="fas fa-image"></i> ดูรูปภาพ</button>` : '';
+                    
+                    item.innerHTML = `
+                        <div style="display:flex; align-items:center; flex-grow: 1; flex-wrap: wrap; gap: 8px;">
+                            <input type="checkbox" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer; margin-right: 4px;" ${sub.isDone ? 'checked' : ''} onchange="app.toggleSubTaskStatus('${task.id}', '${sub.id}', this.checked)">
+                            <span style="${textStyle}; flex-grow:1;">${sub.name}</span>
+                            <div style="display:flex;">
+                                ${linkBtnHtml}
+                                ${imgBtnHtml}
+                            </div>
+                        </div>
+                    `; 
+                    subTasksContainer.appendChild(item);
                 });
             }
         }
@@ -835,7 +922,7 @@ class App {
         
         const subInput = document.getElementById('inputSubTaskName');
         if (subInput && subInput.value.trim() !== '') {
-            this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: subInput.value.trim(), isDone: false });
+            this.tempSubTasks.push({ id: `sub-${Date.now()}`, name: subInput.value.trim(), isDone: false, link: '', attachedImage: '' });
             subInput.value = '';
         }
 
