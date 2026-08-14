@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- 🟢 ยันต์กันแคช บังคับมือถือให้โหลดระบบใหม่ล่าสุดเสมอ (ห้ามจำ) 🟢 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -82,24 +88,10 @@
             .filter-group { flex: 1 1 45% !important; }
             .filter-group-search { flex: 1 1 100% !important; }
 
-            /* 🟢 แก้ไขหน้าต่างรายละเอียดงานบนมือถือ ให้เรียงเป็นแนวตั้ง (แก้จอเละ) */
-            .detail-grid { 
-                display: flex !important; 
-                flex-direction: column !important; 
-                gap: 15px !important; 
-            }
-            .detail-meta-info { 
-                order: -1 !important; /* ดันกล่องข้อมูลจำเพาะขึ้นไปด้านบนสุด */
-                width: 100% !important; 
-                margin-bottom: 10px !important;
-            }
-            .detail-main-info { 
-                width: 100% !important; 
-            }
-            .detail-desc { 
-                max-height: 250px; /* จำกัดความสูงรายละเอียด ให้เลื่อนอ่านได้ */
-                overflow-y: auto; 
-            }
+            .detail-grid { display: flex !important; flex-direction: column !important; gap: 15px !important; }
+            .detail-meta-info { order: -1 !important; width: 100% !important; margin-bottom: 10px !important; }
+            .detail-main-info { width: 100% !important; }
+            .detail-desc { max-height: 250px; overflow-y: auto; }
         }
 
         @media (min-width: 769px) {
@@ -342,6 +334,8 @@
     <div class="toast-container" id="toastContainer"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-    <script src="app.js?v=950"></script>
+    
+    <!-- 💥 เปลี่ยนเป็นเลข 77777 แบบสุ่มเพื่อทะลวงแคชมือถือ 💥 -->
+    <script src="app.js?v=77777"></script>
 </body>
 </html>
