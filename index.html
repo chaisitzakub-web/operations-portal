@@ -4,7 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- 🟢 ยันต์กันแคช บังคับมือถือให้โหลดระบบใหม่ล่าสุดเสมอ (ห้ามจำ) 🟢 -->
+    <!-- 💥 ยาฆ่าซอมบี้: ทำลาย Service Worker และล้าง Cache มือถือแบบถอนรากถอนโคน 💥 -->
+    <script>
+        // สั่งฆ่า Service Worker (ตัวการที่ทำให้มือถือจำโค้ดเก่า)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) { 
+                    registration.unregister(); 
+                    console.log('ล้างระบบแอปเก่าสำเร็จ');
+                }
+            });
+        }
+        // สั่งเคลียร์ความจำแคชของเบราว์เซอร์
+        if (window.caches) {
+            caches.keys().then(function(names) {
+                for (let name of names) { 
+                    caches.delete(name); 
+                }
+            });
+        }
+    </script>
+    
+    <!-- บังคับไม่ให้เบราว์เซอร์จำหน้าเว็บนี้เด็ดขาด -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -335,7 +356,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     
-    <!-- 💥 เปลี่ยนเป็นเลข 77777 แบบสุ่มเพื่อทะลวงแคชมือถือ 💥 -->
-    <script src="app.js?v=77777"></script>
+    <!-- 💥 บังคับโหลดไฟล์ app.js ใหม่สดๆ ร้อนๆ ทุกครั้งที่เปิดเว็บ (กันแคช 100%) 💥 -->
+    <script>
+        var script = document.createElement('script');
+        script.src = "app.js?t=" + new Date().getTime();
+        document.body.appendChild(script);
+    </script>
 </body>
 </html>
