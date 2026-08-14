@@ -4,28 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- 💥 ยาฆ่าซอมบี้: ทำลาย Service Worker และล้าง Cache มือถือแบบถอนรากถอนโคน 💥 -->
+    <!-- 💥 เคลียร์ Service Worker เก่าที่ค้างในมือถือ (ไม่ให้กระทบการโหลด) 💥 -->
     <script>
-        // สั่งฆ่า Service Worker (ตัวการที่ทำให้มือถือจำโค้ดเก่า)
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) { 
-                    registration.unregister(); 
-                    console.log('ล้างระบบแอปเก่าสำเร็จ');
-                }
-            });
-        }
-        // สั่งเคลียร์ความจำแคชของเบราว์เซอร์
-        if (window.caches) {
-            caches.keys().then(function(names) {
-                for (let name of names) { 
-                    caches.delete(name); 
-                }
+                for(let registration of registrations) { registration.unregister(); }
             });
         }
     </script>
     
-    <!-- บังคับไม่ให้เบราว์เซอร์จำหน้าเว็บนี้เด็ดขาด -->
+    <!-- บังคับไม่ให้เบราว์เซอร์จำหน้าเว็บนี้ -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -356,11 +344,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     
-    <!-- 💥 บังคับโหลดไฟล์ app.js ใหม่สดๆ ร้อนๆ ทุกครั้งที่เปิดเว็บ (กันแคช 100%) 💥 -->
-    <script>
-        var script = document.createElement('script');
-        script.src = "app.js?t=" + new Date().getTime();
-        document.body.appendChild(script);
-    </script>
+    <!-- 💥 เรียกใช้งาน app.js ทันที พร้อมรหัสป้องกันแคช 💥 -->
+    <script src="app.js?v=555666777"></script>
 </body>
 </html>
