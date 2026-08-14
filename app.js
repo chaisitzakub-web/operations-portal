@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: แก้ไขบั๊ก Sync ข้อมูลเวลาลบงานทั้งหมด (Empty Array Bug) และเพิ่มระบบ Auto-Sync เมื่อเปิดจอ
+ * อัปเดตล่าสุด: เพิ่มระบบ Data Normalizer แก้ปัญหาข้อมูลพัง ซิงค์คอม-มือถือ 100%
  */
 
 class AttachmentStore {
@@ -85,7 +85,6 @@ class App {
                 }
             });
 
-            // 🟢 ระบบ Auto-Sync: เมื่อมือถือสลับหน้าจอเข้ามาที่แอป จะโหลดข้อมูลจากเซิร์ฟเวอร์ทันที
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible' && this.isCloudMode) {
                     this.syncWithCloudflare().then(() => this.switchView(this.currentView, true));
@@ -162,6 +161,41 @@ class App {
         this.pdfButtonsContainer = document.getElementById('pdfButtonsContainer'); this.toastContainer = document.getElementById('toastContainer');
     }
 
+    // 🟢 ระบบเครื่องยนต์แปลภาษา (Data Normalizer) แก้ปัญหาข้อมูลพัง 100%
+    normalizeTask(task) {
+        if (!task) return task;
+        
+        const safeParseArray = (val) => {
+            if (Array.isArray(val)) return val;
+            if (!val || val === '[]') return [];
+            if (typeof val === 'string') {
+                try {
+                    let parsed = JSON.parse(val);
+                    if (typeof parsed === 'string') parsed = JSON.parse(parsed); // แก้บั๊กซ้อน String
+                    return Array.isArray(parsed) ? parsed : [parsed];
+                } catch(e) { return [val]; } // ถ้าเป็นแค่ชื่อไฟล์ธรรมดา ให้จับใส่ Array
+            }
+            return [val];
+        };
+
+        task.subTasks = safeParseArray(task.subTasks).filter(s => s && typeof s === 'object' && s.name);
+        task.history = safeParseArray(task.history).filter(h => h && typeof h === 'object' && h.time);
+        
+        task.attachmentName = safeParseArray(task.attachmentName);
+        task.attachmentUrls = safeParseArray(task.attachmentUrls);
+        
+        if (task.attachmentName.length > 0 || task.attachmentUrls.length > 0) {
+            task.hasAttachment = true;
+        } else {
+            task.hasAttachment = false;
+        }
+
+        task.docRefIn = task.docRefIn || '';
+        task.docRefOut = task.docRefOut || '';
+
+        return task;
+    }
+
     ensureAdminStaff() {
         if (!this.staff || !Array.isArray(this.staff)) this.staff = [];
         if (!this.staff.find(m => m.id === 'leader')) this.staff.unshift({ id: 'leader', name: 'หัวหน้าฝ่ายยุทธการ', role: 'หัวหน้าฝ่ายยุทธการ (Leader)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=leader', isStaffAdmin: true, rankWeight: 1 });
@@ -213,11 +247,6 @@ class App {
         const file = e.target.files[0];
         if (!file) return;
         
-        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
-            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
-            return;
-        }
-
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
@@ -350,18 +379,6 @@ class App {
         });
     }
 
-    parseDataSafe(data) {
-        if (Array.isArray(data)) return data;
-        if (typeof data === 'string') {
-            try {
-                let parsed = JSON.parse(data);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                return Array.isArray(parsed) ? parsed : [];
-            } catch(e) { return []; }
-        }
-        return [];
-    }
-
     loadData() {
         const storedData = localStorage.getItem('operations_portal_data');
         if (storedData) {
@@ -369,11 +386,7 @@ class App {
                 const parsed = JSON.parse(storedData);
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-                
-                this.tasks.forEach(t => { 
-                    t.subTasks = this.parseDataSafe(t.subTasks);
-                    t.history = this.parseDataSafe(t.history);
-                });
+                this.tasks = this.tasks.map(t => this.normalizeTask(t)); // 🟢 ฆ่าเชื้อข้อมูลก่อนใช้งาน
                 
                 const devMem = this.staff.find(m => m.id === 'dev-chaisith');
                 if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
@@ -389,14 +402,12 @@ class App {
     syncTaskToServer(task) {
         if (!this.isCloudMode) return;
         try {
-            const payload = JSON.parse(JSON.stringify(task));
-            payload.subTasks = JSON.stringify(this.parseDataSafe(payload.subTasks));
-            payload.history = JSON.stringify(this.parseDataSafe(payload.history));
-            
+            // 🟢 โยนข้อมูลที่ซ่อมแซมแล้วขึ้นเซิร์ฟเวอร์แบบตรงๆ ไม่ง้อการ Stringify ซ้อน
+            const cleanTask = this.normalizeTask(JSON.parse(JSON.stringify(task)));
             fetch('/api/tasks', { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(payload) 
+                body: JSON.stringify(cleanTask) 
             }).catch(e => console.error(e));
         } catch (e) { console.error("Sync payload error:", e); }
     }
@@ -415,23 +426,9 @@ class App {
             const tasksRes = await fetch('/api/tasks?nocache=' + Date.now(), { cache: 'no-store' }); 
             if (tasksRes.ok) { 
                 const data = await tasksRes.json(); 
-                // 🟢 หัวใจสำคัญที่แก้บั๊ก! ถ้าระบบส่งกล่องว่างเปล่ามา ให้ลบงานในเครื่องทิ้งตาม!
                 if (Array.isArray(data)) {
-                    this.tasks = data.map(serverTask => {
-                        serverTask.subTasks = this.parseDataSafe(serverTask.subTasks);
-                        serverTask.history = this.parseDataSafe(serverTask.history);
-
-                        const localTask = this.tasks.find(t => t.id === serverTask.id);
-                        if (localTask) {
-                            if (serverTask.subTasks.length === 0 && localTask.subTasks && localTask.subTasks.length > 0) {
-                                serverTask.subTasks = localTask.subTasks;
-                            }
-                            if (!serverTask.attachmentUrls) serverTask.attachmentUrls = localTask.attachmentUrls || '';
-                            if (!serverTask.docRefIn) serverTask.docRefIn = localTask.docRefIn || '';
-                            if (!serverTask.docRefOut) serverTask.docRefOut = localTask.docRefOut || '';
-                        }
-                        return serverTask;
-                    });
+                    // 🟢 โหลดข้อมูลมาจากเซิร์ฟเวอร์ปุ๊บ เอาเข้าเครื่องกรองทันที!
+                    this.tasks = data.map(serverTask => this.normalizeTask(serverTask));
                 }
             }
             
@@ -636,7 +633,7 @@ class App {
     removeTempSubTask(index) { if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks.splice(index, 1); this.renderSubTaskListInModal(); } }
 
     toggleSubTaskStatus(taskId, subId, isChecked) {
-        const task = this.tasks.find(t => t.id === taskId); if (!task || !task.subTasks) return;
+        const task = this.tasks.find(t => t.id === taskId); if (!task) return;
         const sub = task.subTasks.find(s => s.id === subId);
         if (sub) {
             sub.isDone = isChecked; const progress = this.getTaskProgress(task);
@@ -855,8 +852,13 @@ class App {
         if (subTasksContainer && subTaskPctText && subTaskBar) {
             const progress = this.getTaskProgress(task); subTaskPctText.textContent = `${progress}%`; subTaskBar.style.width = `${progress}%`;
             subTasksContainer.innerHTML = '';
-            if (!task.subTasks || task.subTasks.length === 0) { subTasksContainer.innerHTML = '<span style="color: #64748b; font-size: 13px; font-style: italic;">ภารกิจนี้ไม่มีการแบ่งกิจย่อยไว้</span>'; } else {
+            
+            // 🟢 ตรวจสอบให้ชัวร์ว่ามีข้อมูลถึงจะแสดงผล
+            if (!task.subTasks || !Array.isArray(task.subTasks) || task.subTasks.length === 0) { 
+                subTasksContainer.innerHTML = '<span style="color: #64748b; font-size: 13px; font-style: italic;">ภารกิจนี้ไม่มีการแบ่งกิจย่อยไว้</span>'; 
+            } else {
                 task.subTasks.forEach((sub) => {
+                    if (!sub || typeof sub !== 'object') return; // กันพังถ้าข้อมูลเสีย
                     const item = document.createElement('label'); item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
                     const textStyle = sub.isDone ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc; font-weight: 500;';
                     
@@ -875,7 +877,7 @@ class App {
                     item.innerHTML = `
                         <div style="display:flex; align-items:center; flex-grow: 1; flex-wrap: wrap; gap: 8px;">
                             <input type="checkbox" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer; margin-right: 4px;" ${sub.isDone ? 'checked' : ''} onchange="app.toggleSubTaskStatus('${task.id}', '${sub.id}', this.checked)">
-                            <span style="${textStyle}; flex-grow:1;">${sub.name}</span>
+                            <span style="${textStyle}; flex-grow:1;">${sub.name || 'ไม่มีชื่อกิจย่อย'}</span>
                             <div style="display:flex;">
                                 ${buttonsHtml}
                             </div>
@@ -886,24 +888,19 @@ class App {
             }
         }
 
-        if (task.hasAttachment && this.detailPdfItem && this.pdfButtonsContainer) {
-            this.detailPdfItem.classList.remove('d-none'); this.pdfButtonsContainer.innerHTML = ''; 
-            
-            let fileNamesList = []; 
-            try { fileNamesList = JSON.parse(task.attachmentName); if (!Array.isArray(fileNamesList)) fileNamesList = [task.attachmentName]; } catch (e) { fileNamesList = [task.attachmentName]; }
-            
-            let urlsList = [];
-            if (task.attachmentUrls) {
-                try { urlsList = JSON.parse(task.attachmentUrls); } catch(e) {}
-            }
+        // 🟢 ระบบดึงไฟล์ PDF ที่ปรับปรุงแล้ว
+        if (task.hasAttachment && task.attachmentName && task.attachmentName.length > 0 && this.detailPdfItem && this.pdfButtonsContainer) {
+            this.detailPdfItem.classList.remove('d-none'); 
+            this.pdfButtonsContainer.innerHTML = ''; 
 
-            fileNamesList.forEach((fName, index) => {
+            task.attachmentName.forEach((fName, index) => {
                 const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn btn-secondary'; btn.style = 'padding: 6px 10px; font-size: 11px; font-weight: 600; text-align: left; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 5px; margin-bottom: 5px;'; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`;
                 btn.addEventListener('click', async () => {
-                    if (urlsList[index]) {
-                        window.open(urlsList[index], '_blank');
+                    const fileUrl = task.attachmentUrls && task.attachmentUrls[index] ? task.attachmentUrls[index] : null;
+                    if (fileUrl && fileUrl.startsWith('http')) {
+                        window.open(fileUrl, '_blank');
                     } else {
-                        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์เก่า...';
+                        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์...';
                         try {
                             const record = await this.attachments.getAttachment(task.id);
                             if (record) { 
@@ -912,9 +909,9 @@ class App {
                                 else if (record.fileData) fileDataToOpen = record.fileData; 
                                 
                                 if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); 
-                                else alert('⚠️ ไม่พบข้อมูลไฟล์ในเครื่อง\n(ไฟล์อาจถูกลบไปแล้ว กรุณาแนบไฟล์ใหม่อีกครั้งครับ)'); 
+                                else alert('⚠️ ไม่พบข้อมูลไฟล์ในเครื่อง\n(กรุณาให้ผู้ส่งงานแก้ไขแล้วแนบไฟล์อีกครั้งครับ)'); 
                             } else { 
-                                alert('⚠️ ไม่พบไฟล์นี้ในระบบ\n\nสาเหตุ: ไฟล์นี้เป็นไฟล์เก่าที่บันทึกก่อนอัปเดตระบบ หรือถูกลบออกจากเครื่องไปแล้ว\n\n💡 วิธีแก้ไข: กรุณากดปุ่ม "แก้ไขภารกิจ" แล้วแนบไฟล์นี้เข้าไปใหม่อีกครั้ง ระบบจะทำการจัดเก็บขึ้น Google Drive ส่วนกลางให้อย่างถาวรครับ 🫡'); 
+                                alert('⚠️ ไม่พบไฟล์นี้ในระบบ\n\nสาเหตุ: เป็นไฟล์เก่าก่อนอัปเดตระบบ หรือไฟล์ยังไม่ถูกอัปโหลดขึ้น Drive\n\n💡 วิธีแก้ไข: กรุณากด "แก้ไขภารกิจ" แล้วแนบไฟล์เดิมซ้ำอีกครั้ง เพื่ออัปโหลดขึ้น Drive ถาวรครับ 🫡'); 
                             }
                         } catch (err) {} finally { btn.disabled = false; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`; }
                     }
@@ -1144,8 +1141,8 @@ class App {
                 let uploadedUrls = await this.processMainPdfUploads(files, finalTaskId);
                 
                 taskObj.hasAttachment = true; 
-                taskObj.attachmentName = JSON.stringify(fileNamesArray); 
-                taskObj.attachmentUrls = JSON.stringify(uploadedUrls); 
+                taskObj.attachmentName = fileNamesArray; // เก็บเป็น Array ตรงๆ เลย!
+                taskObj.attachmentUrls = uploadedUrls;   // เก็บเป็น Array ตรงๆ เลย!
                 if (!taskObj.history) taskObj.history = []; 
                 taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสารเข้า Drive ${files.length} ฉบับ`, user: logUser }); 
                 lineAlertMessage += ` (แนบเอกสาร ${files.length} ฉบับ)`;
