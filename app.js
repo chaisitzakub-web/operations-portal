@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เพิ่มระบบ "แนบรูปภาพ" พร้อมตัวบีบอัดในกิจย่อย (Subtasks)
+ * อัปเดตล่าสุด: ล็อกสถานะกิจย่อย (isDone) ไม่ให้หายตอนกดบันทึก + แก้บั๊กประวัติย้อนกลับ
  */
 
 class AttachmentStore {
@@ -175,7 +175,6 @@ class App {
         setTimeout(() => { toast.style.animation = 'toast-in 0.3s reverse forwards'; setTimeout(() => toast.remove(), 300); }, 3500);
     }
 
-    // 🟢 ระบบบีบอัดรูปภาพก่อนเซฟ (ป้องกันเว็บพังความจำเต็ม)
     compressImage(file, maxWidth = 800, quality = 0.6) {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -201,7 +200,6 @@ class App {
         });
     }
 
-    // 🟢 ฟังก์ชันอัปโหลดและเซฟรูปของกิจย่อย
     async handleSubTaskImageUpload(e, index) {
         const file = e.target.files[0];
         if (!file) return;
@@ -434,7 +432,6 @@ class App {
         });
     }
 
-    // 🟢 อัปเดตกล่องแสดงผลกิจย่อย ให้มีปุ่มแนบไฟล์รูป
     renderSubTaskListInModal() {
         const container = document.getElementById('subTaskListContainer'); if (!container) return;
         container.innerHTML = '';
@@ -447,7 +444,6 @@ class App {
             const safeName = sub.name ? sub.name.replace(/"/g, '&quot;') : '';
             const safeLink = sub.link ? sub.link.replace(/"/g, '&quot;') : '';
             
-            // ป้ายบอกว่ามีรูปแนบไว้แล้ว
             const hasImgBadge = sub.attachedImage ? `<span style="color:#10b981; font-size:10px; margin-left:8px;"><i class="fas fa-check-circle"></i> มีรูปแล้ว</span>` : '';
             
             item.innerHTML = `
@@ -466,7 +462,6 @@ class App {
                                style="flex-grow:1; background:transparent; border:none; color:#60a5fa; outline:none; font-family:'Prompt', sans-serif; font-size:11px; width:100%;"
                                placeholder="วางลิงก์แนบเอกสาร (ถ้ามี)...">
                         
-                        <!-- 🟢 ปุ่มแนบรูปภาพโดยเฉพาะ -->
                         <input type="file" id="subTaskFile_${index}" accept="image/*" style="display:none;" onchange="app.handleSubTaskImageUpload(event, ${index})">
                         <button type="button" style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:#3b82f6; border-radius:4px; padding:3px 8px; font-size:10px; cursor:pointer;" onclick="document.getElementById('subTaskFile_${index}').click()"><i class="fas fa-image"></i> แนบรูป</button>
                         ${hasImgBadge}
@@ -480,12 +475,17 @@ class App {
         });
     }
 
+    // 🟢 ล็อกไม่ให้ .trim() ตัดวรรคตอนกำลังพิมพ์
     updateTempSubTask(index, newValue) {
-        if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks[index].name = newValue.trim(); }
+        if (this.tempSubTasks && this.tempSubTasks[index]) {
+            this.tempSubTasks[index].name = newValue; 
+        }
     }
     
     updateTempSubTaskLink(index, newLink) {
-        if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks[index].link = newLink.trim(); }
+        if (this.tempSubTasks && this.tempSubTasks[index]) { 
+            this.tempSubTasks[index].link = newLink; 
+        }
     }
 
     removeTempSubTask(index) { if (this.tempSubTasks && this.tempSubTasks[index]) { this.tempSubTasks.splice(index, 1); this.renderSubTaskListInModal(); } }
@@ -501,7 +501,11 @@ class App {
             task.history.push({ time: now.toISOString(), action: `${isChecked ? 'ปฏิบัติสำเร็จ' : 'ยกเลิกสำเร็จ'}: กิจย่อย "${sub.name}" (${progress}%)`, user: this.currentUserName.textContent });
             this.saveData();
             if (this.currentView === 'leader-tasks') this.renderMasterTaskListTable(); else if (this.currentView === 'staff-kanban') this.renderStaffKanban(); else if (this.currentView === 'staff-tasks') this.renderStaffTaskListTable(); else if (this.currentView === 'leader-dashboard') this.renderLeaderDashboard();
-            this.viewTaskDetails(taskId);
+            
+            // 🟢 ป้องกันประวัติ History เด้งรัวๆ ตอนติ๊กถูกหลายรอบ
+            const isDetailOpen = this.taskDetailModal && this.taskDetailModal.classList.contains('show');
+            if (!isDetailOpen) { this.viewTaskDetails(taskId); }
+            
             if (this.isCloudMode) { fetch('/api/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(task) }).catch(err => err); }
         }
     }
@@ -650,7 +654,6 @@ class App {
         if (this.kanbanDone) this.populateKanbanColumn(this.kanbanDone, done);
     }
 
-    // 🟢 ระบบกดดูรูปภาพในกิจย่อย (เด้งขึ้นหน้าต่างใหม่)
     viewSubTaskImage(subId) {
         let foundImg = null;
         for (let t of this.tasks) {
@@ -663,7 +666,7 @@ class App {
             const win = window.open();
             win.document.write(`<body style="margin:0; background:#0f172a; display:flex; justify-content:center; align-items:center; height:100vh;"><img src="${foundImg}" style="max-width:100%; max-height:100vh; object-fit:contain; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></body>`);
         } else {
-            this.showToast('ไม่พบรูปภาพ หรือรูปภาพหมดอายุ', 'warning');
+            this.showToast('ไม่พบรูปภาพ หรือรูปภาพถูกลบไปแล้ว', 'warning');
         }
     }
 
@@ -709,7 +712,6 @@ class App {
                     const item = document.createElement('label'); item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
                     const textStyle = sub.isDone ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc; font-weight: 500;';
                     
-                    // 🟢 โชว์ปุ่มดูภาพ หรือ เปิดลิงก์เอกสาร
                     const linkBtnHtml = sub.link ? `<a href="${sub.link}" target="_blank" style="margin-left:auto; font-size: 11px; font-weight:600; color: #ffffff; background: #3b82f6; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(59,130,246,0.3);"><i class="fas fa-external-link-alt"></i> เปิดไฟล์</a>` : '';
                     const imgBtnHtml = sub.attachedImage ? `<button type="button" onclick="app.viewSubTaskImage('${sub.id}')" style="margin-left:${sub.link ? '5px' : 'auto'}; font-size: 11px; font-weight:600; color: #ffffff; background: #10b981; padding: 4px 10px; border-radius: 6px; border:none; cursor:pointer; box-shadow: 0 2px 5px rgba(16,185,129,0.3);"><i class="fas fa-image"></i> ดูรูปภาพ</button>` : '';
                     
@@ -754,8 +756,12 @@ class App {
             } else { historyLogContainer.innerHTML = '<i>ยังไม่มีประวัติ</i>'; }
         }
         
-        history.pushState({ modal: 'detail' }, ''); 
-        if(this.taskDetailModal) this.taskDetailModal.classList.add('show');
+        // 🟢 แก้บั๊กกดย้อนกลับแล้วค้าง: เช็คก่อนว่าหน้าต่างเปิดอยู่ไหม ถ้าเปิดอยู่แล้วไม่ต้องดัน History เพิ่ม
+        const isDetailOpen = this.taskDetailModal && this.taskDetailModal.classList.contains('show');
+        if (!isDetailOpen) {
+            history.pushState({ modal: 'detail' }, ''); 
+            if(this.taskDetailModal) this.taskDetailModal.classList.add('show');
+        }
     }
 
     viewMergedTaskDetails(allTasks) {
@@ -928,6 +934,15 @@ class App {
 
         const now = new Date(); const logUser = this.currentUserName.textContent; let finalTaskId = id; let taskObj = null; let lineAlertMessage = '';
         
+        // 🟢 ล็อกการบันทึก: ดึงค่าโครงสร้างที่ถูกต้องให้มั่นใจว่าของไม่หล่นหาย
+        const cleanedSubTasks = this.tempSubTasks.map(s => ({
+            id: s.id || `sub-${Date.now()}-${Math.random()}`,
+            name: s.name ? s.name.trim() : '',
+            isDone: !!s.isDone,  // 🟢 ล็อกสถานะ isDone ให้ฝังลึก
+            link: s.link || '',
+            attachedImage: s.attachedImage || ''
+        })).filter(s => s.name !== '');
+
         if (id) {
             taskObj = this.tasks.find(t => t.id === id);
             if (taskObj) {
@@ -936,14 +951,14 @@ class App {
                 if (taskObj.docRefOut !== docRefOut) changes.push(`เลขที่เอกสาร ฝยก.`);
 
                 taskObj.name = name; taskObj.description = description; taskObj.assigneeId = assigneeId; taskObj.status = status; taskObj.urgency = urgency; taskObj.secrecy = secrecy; taskObj.receiveDate = receiveDate; taskObj.startDate = startDate; taskObj.deadline = deadline; 
-                taskObj.subTasks = this.tempSubTasks.filter(s => s.name.trim() !== '');
+                taskObj.subTasks = cleanedSubTasks;
                 taskObj.docRefIn = docRefIn; taskObj.docRefOut = docRefOut;
 
                 if (!taskObj.history) taskObj.history = []; if (changes.length > 0) { taskObj.history.push({ time: now.toISOString(), action: `แก้ไข: ${changes.join(', ')}`, user: logUser }); lineAlertMessage = `อัปเดตข้อมูล: ${changes.join(', ')}`; }
             }
         } else {
             finalTaskId = `task-${Date.now()}`; 
-            taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, docRefIn, docRefOut, subTasks: this.tempSubTasks.filter(s => s.name.trim() !== ''), history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้น`, user: logUser }] }; 
+            taskObj = { id: finalTaskId, name, description, assigneeId, status, urgency, secrecy, receiveDate, startDate, deadline, docRefIn, docRefOut, subTasks: cleanedSubTasks, history: [{ time: now.toISOString(), action: `มอบหมายภารกิจเริ่มต้น`, user: logUser }] }; 
             this.tasks.push(taskObj); lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
         }
 
