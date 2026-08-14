@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: แยกระบบจัดเก็บไฟล์ (รูปกิจย่อยเข้าโฟลเดอร์นึง, เอกสาร PDF หลักเข้าอีกโฟลเดอร์นึง)
+ * อัปเดตล่าสุด: เพิ่มระบบ Smart Merge ป้องกันเซิร์ฟเวอร์ลบข้อมูลกิจย่อย/ไฟล์แนบ
  */
 
 class AttachmentStore {
@@ -60,7 +60,6 @@ class App {
         this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
         this.calendarInstance = null; this.tempSubTasks = []; 
 
-        // 💥💥 URL Google Apps Script ของหน่วย 💥💥
         this.GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzvMe5wh0sv_ui1zTwuT2llj4xJbV3VAviBlzC21BT74H6tam7NYNBdUDi7NdxPr9xPrQ/exec'; 
 
         try {
@@ -203,7 +202,6 @@ class App {
         });
     }
 
-    // 🟢 ระบบอัปโหลดรูปกิจย่อยเข้าโฟลเดอร์ภาพ (1TltEwmsZKuHppeGEWWjaurtlM5-4bdrg)
     async handleSubTaskImageUpload(e, index) {
         const file = e.target.files[0];
         if (!file) return;
@@ -222,7 +220,7 @@ class App {
                 fileName: `subtask_${Date.now()}.jpg`,
                 mimeType: 'image/jpeg',
                 base64: base64Data,
-                folderId: '1TltEwmsZKuHppeGEWWjaurtlM5-4bdrg' // โฟลเดอร์สำหรับรูปกิจย่อย
+                folderId: '1TltEwmsZKuHppeGEWWjaurtlM5-4bdrg' 
             };
 
             const response = await fetch(this.GAS_WEB_APP_URL, {
@@ -256,7 +254,6 @@ class App {
         }
     }
 
-    // 🟢 ระบบดึงไฟล์หลัก (PDF/ภาพ) เข้าโฟลเดอร์เอกสารใหม่ (1fknMwCe4Lq4M1QxP3s13t4J0xsmST1xi)
     async processMainPdfUploads(files, finalTaskId) {
         let uploadedUrls = [];
         for (let i = 0; i < files.length; i++) { 
@@ -271,7 +268,7 @@ class App {
                 fileName: `Task_${finalTaskId}_${file.name}`,
                 mimeType: file.type,
                 base64: base64Data,
-                folderId: '1fknMwCe4Lq4M1QxP3s13t4J0xsmST1xi' // 🟢 โฟลเดอร์สำหรับ PDF / เอกสารหลัก
+                folderId: '1fknMwCe4Lq4M1QxP3s13t4J0xsmST1xi' 
             };
 
             const response = await fetch(this.GAS_WEB_APP_URL, {
@@ -364,9 +361,30 @@ class App {
     async syncWithCloudflare() {
         this.isCloudMode = window.location.protocol.startsWith('http'); if (!this.isCloudMode) return;
         try {
-            const staffRes = await fetch('/api/staff'); if (staffRes.ok) { const data = await staffRes.json(); if (data && data.length > 0) this.staff = data; }
-            const tasksRes = await fetch('/api/tasks'); if (tasksRes.ok) { const data = await tasksRes.json(); if (data && data.length > 0) this.tasks = data; }
-            this.tasks.forEach(t => { if (!t.subTasks || !Array.isArray(t.subTasks)) t.subTasks = []; });
+            const staffRes = await fetch('/api/staff'); 
+            if (staffRes.ok) { 
+                const data = await staffRes.json(); 
+                if (data && data.length > 0) this.staff = data; 
+            }
+            
+            const tasksRes = await fetch('/api/tasks'); 
+            if (tasksRes.ok) { 
+                const data = await tasksRes.json(); 
+                if (data && data.length > 0) {
+                    // 🟢 ระบบ Smart Merge ป้องกันเซิร์ฟเวอร์ Cloudflare ลบฟิลด์ใหม่ๆ ทิ้ง
+                    this.tasks = data.map(serverTask => {
+                        const localTask = this.tasks.find(t => t.id === serverTask.id);
+                        if (localTask) {
+                            if (!serverTask.subTasks || serverTask.subTasks.length === 0) serverTask.subTasks = localTask.subTasks || [];
+                            if (!serverTask.attachmentUrls) serverTask.attachmentUrls = localTask.attachmentUrls || '';
+                            if (!serverTask.docRefIn) serverTask.docRefIn = localTask.docRefIn || '';
+                            if (!serverTask.docRefOut) serverTask.docRefOut = localTask.docRefOut || '';
+                        }
+                        if (!serverTask.subTasks) serverTask.subTasks = [];
+                        return serverTask;
+                    });
+                }
+            }
             
             const devMem = this.staff.find(m => m.id === 'dev-chaisith');
             if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
@@ -837,7 +855,17 @@ class App {
                         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์เก่า...';
                         try {
                             const record = await this.attachments.getAttachment(task.id);
-                            if (record) { let fileDataToOpen = null; if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData; else if (record.fileData) fileDataToOpen = record.fileData; if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); else alert('ไม่พบข้อมูลไฟล์แนบนี้'); } else { alert('ไม่พบไฟล์แนบในฐานข้อมูล'); }
+                            if (record) { 
+                                let fileDataToOpen = null; 
+                                if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData; 
+                                else if (record.fileData) fileDataToOpen = record.fileData; 
+                                
+                                if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); 
+                                else alert('⚠️ ไม่พบข้อมูลไฟล์ในเครื่อง\n(ไฟล์อาจถูกลบไปแล้ว กรุณาแนบไฟล์ใหม่อีกครั้งครับ)'); 
+                            } else { 
+                                // 🟢 เปลี่ยนข้อความแจ้ง Error ให้ชัดเจนและให้คำแนะนำผู้ใช้
+                                alert('⚠️ ไม่พบไฟล์นี้ในระบบ\n\nสาเหตุ: ไฟล์นี้เป็นไฟล์เก่าที่บันทึกก่อนอัปเดตระบบ หรือถูกลบออกจากเครื่องไปแล้ว\n\n💡 วิธีแก้ไข: กรุณากดปุ่ม "แก้ไขภารกิจ" แล้วแนบไฟล์นี้เข้าไปใหม่อีกครั้ง ระบบจะทำการจัดเก็บขึ้น Google Drive ส่วนกลางให้อย่างถาวรครับ 🫡'); 
+                            }
                         } catch (err) {} finally { btn.disabled = false; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`; }
                     }
                 }); 
@@ -1058,7 +1086,6 @@ class App {
             this.tasks.push(taskObj); lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
         }
 
-        // 🟢 อัปโหลดไฟล์เอกสารหลักเข้า Drive
         if (taskObj && this.taskPdfInput && this.taskPdfInput.files.length > 0) {
             const files = this.taskPdfInput.files; const fileNamesArray = Array.from(files).map(f => f.name); 
             this.btnSubmitTaskModal.disabled = true; this.btnSubmitTaskModal.innerHTML = '<i class="fas fa-spinner fa-spin"></i> อัปโหลดไฟล์ลง Drive...';
@@ -1068,7 +1095,7 @@ class App {
                 
                 taskObj.hasAttachment = true; 
                 taskObj.attachmentName = JSON.stringify(fileNamesArray); 
-                taskObj.attachmentUrls = JSON.stringify(uploadedUrls); // 🟢 เก็บลิงก์ Drive ไว้
+                taskObj.attachmentUrls = JSON.stringify(uploadedUrls); 
                 if (!taskObj.history) taskObj.history = []; 
                 taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสารเข้า Drive ${files.length} ฉบับ`, user: logUser }); 
                 lineAlertMessage += ` (แนบเอกสาร ${files.length} ฉบับ)`;
