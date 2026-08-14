@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เพิ่มเกราะป้องกันข้อมูล (Safe Parse) ให้คอมพิวเตอร์อ่านข้อมูลจากมือถือได้ 100%
+ * อัปเดตล่าสุด: แก้ไขบั๊ก Sync ข้อมูลเวลาลบงานทั้งหมด (Empty Array Bug) และเพิ่มระบบ Auto-Sync เมื่อเปิดจอ
  */
 
 class AttachmentStore {
@@ -82,6 +82,13 @@ class App {
                     const member = this.staff.find(m => m.id === this.currentUser);
                     const isAdmin = member && (member.id === 'leader' || member.id === 'asst-g3' || member.isStaffAdmin);
                     if(isAdmin) { this.switchView('leader-dashboard', true); } else { this.switchView('staff-kanban', true); }
+                }
+            });
+
+            // 🟢 ระบบ Auto-Sync: เมื่อมือถือสลับหน้าจอเข้ามาที่แอป จะโหลดข้อมูลจากเซิร์ฟเวอร์ทันที
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && this.isCloudMode) {
+                    this.syncWithCloudflare().then(() => this.switchView(this.currentView, true));
                 }
             });
             
@@ -206,6 +213,11 @@ class App {
         const file = e.target.files[0];
         if (!file) return;
         
+        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
+            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
+            return;
+        }
+
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
@@ -338,7 +350,6 @@ class App {
         });
     }
 
-    // 🟢 ระบบบังคับแปลภาษาข้อมูล (เกราะเหล็ก 100%)
     parseDataSafe(data) {
         if (Array.isArray(data)) return data;
         if (typeof data === 'string') {
@@ -375,7 +386,6 @@ class App {
 
     saveData() { localStorage.setItem('operations_portal_data', JSON.stringify({ staff: this.staff, tasks: this.tasks })); }
 
-    // 🟢 ระบบส่งข้อมูลขึ้นเซิร์ฟเวอร์แบบกันเซิร์ฟเวอร์ตีกลับ
     syncTaskToServer(task) {
         if (!this.isCloudMode) return;
         try {
@@ -397,13 +407,16 @@ class App {
             const staffRes = await fetch('/api/staff?nocache=' + Date.now(), { cache: 'no-store' }); 
             if (staffRes.ok) { 
                 const data = await staffRes.json(); 
-                if (data && data.length > 0) this.staff = data; 
+                if (Array.isArray(data)) {
+                    this.staff = data.length > 0 ? data : JSON.parse(JSON.stringify(DEFAULT_STAFF));
+                }
             }
             
             const tasksRes = await fetch('/api/tasks?nocache=' + Date.now(), { cache: 'no-store' }); 
             if (tasksRes.ok) { 
                 const data = await tasksRes.json(); 
-                if (data && data.length > 0) {
+                // 🟢 หัวใจสำคัญที่แก้บั๊ก! ถ้าระบบส่งกล่องว่างเปล่ามา ให้ลบงานในเครื่องทิ้งตาม!
+                if (Array.isArray(data)) {
                     this.tasks = data.map(serverTask => {
                         serverTask.subTasks = this.parseDataSafe(serverTask.subTasks);
                         serverTask.history = this.parseDataSafe(serverTask.history);
@@ -425,8 +438,10 @@ class App {
             const devMem = this.staff.find(m => m.id === 'dev-chaisith');
             if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
             
-            this.ensureAdminStaff(); this.saveData();
-        } catch (err) {}
+            this.ensureAdminStaff(); 
+            this.saveData();
+            
+        } catch (err) { console.error("Sync Error:", err); }
     }
 
     switchView(viewName, isPopState = false) {
