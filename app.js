@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: แก้ไขระบบอัปโหลดภาพ, แจ้งเตือนข้อผิดพลาดชัดเจน และคืนชีพปุ่มดูรูปเก่า
+ * อัปเดตล่าสุด: แยกระบบจัดเก็บไฟล์ (รูปกิจย่อยเข้าโฟลเดอร์นึง, เอกสาร PDF หลักเข้าอีกโฟลเดอร์นึง)
  */
 
 class AttachmentStore {
@@ -60,7 +60,7 @@ class App {
         this.statusChartInstance = null; this.staffChartInstance = null; this.draggedCardId = null; this.editingStaffId = null;
         this.calendarInstance = null; this.tempSubTasks = []; 
 
-        // 💥💥 URL Google Apps Script ล่าสุด 💥💥
+        // 💥💥 URL Google Apps Script ของหน่วย 💥💥
         this.GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzvMe5wh0sv_ui1zTwuT2llj4xJbV3VAviBlzC21BT74H6tam7NYNBdUDi7NdxPr9xPrQ/exec'; 
 
         try {
@@ -203,21 +203,16 @@ class App {
         });
     }
 
-    // 🟢 ระบบอัปโหลดเข้า Google Drive พร้อมเช็ค Error
+    // 🟢 ระบบอัปโหลดรูปกิจย่อยเข้าโฟลเดอร์ภาพ (1TltEwmsZKuHppeGEWWjaurtlM5-4bdrg)
     async handleSubTaskImageUpload(e, index) {
         const file = e.target.files[0];
         if (!file) return;
         
-        if (!this.GAS_WEB_APP_URL || this.GAS_WEB_APP_URL === 'เอา_URL_WEB_APP_มาวางตรงนี้') {
-            alert('กรุณาตั้งค่า Web App URL ในโค้ด app.js ก่อนครับ!');
-            return;
-        }
-
         const btn = document.getElementById(`btnUploadImg_${index}`);
         const ogText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังอัปโหลด...';
         btn.disabled = true;
-        this.showToast('ระบบกำลังบีบอัดและส่งรูปภาพเข้า Drive...', 'info');
+        this.showToast('ระบบกำลังส่งรูปภาพเข้า Drive...', 'info');
         
         try {
             const compressedBase64 = await this.compressImage(file);
@@ -226,47 +221,80 @@ class App {
             const payload = {
                 fileName: `subtask_${Date.now()}.jpg`,
                 mimeType: 'image/jpeg',
-                base64: base64Data
+                base64: base64Data,
+                folderId: '1TltEwmsZKuHppeGEWWjaurtlM5-4bdrg' // โฟลเดอร์สำหรับรูปกิจย่อย
             };
 
             const response = await fetch(this.GAS_WEB_APP_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8',
-                },
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify(payload)
             });
 
             const textResult = await response.text();
             let result;
-            try {
-                result = JSON.parse(textResult);
-            } catch(e) {
-                console.error("Error Log:", textResult);
-                throw new Error("ข้อผิดพลาดจากฝั่ง Google Drive (อาจเกิดจากสิทธิ์การแชร์ไฟล์)");
-            }
+            try { result = JSON.parse(textResult); } catch(e) { throw new Error("ข้อผิดพลาดจากฝั่ง Google Drive"); }
 
             if (result.success) {
                 if (this.tempSubTasks && this.tempSubTasks[index]) {
                     this.tempSubTasks[index].attachedImage = result.url;
-                    
-                    // แปะลงช่องลิงก์ให้ผู้ใช้เห็นด้วยว่าอัปโหลดสำเร็จ
                     if (!this.tempSubTasks[index].link) {
                         this.tempSubTasks[index].link = result.url;
                     }
                     this.renderSubTaskListInModal();
-                    this.showToast('อัปโหลดรูปภาพเข้า Drive เรียบร้อย!', 'success');
+                    this.showToast('จัดเก็บรูปภาพเข้า Drive เรียบร้อย!', 'success');
                 }
             } else {
                 throw new Error(result.error);
             }
         } catch (err) {
             console.error(err);
-            alert("⚠️ ขออภัย อัปโหลดไม่สำเร็จ:\n" + err.message + "\n\n(รูปยังไม่ถูกบันทึก กรุณาลองอัปโหลดใหม่อีกครั้ง)");
-            this.showToast('อัปโหลดรูปภาพล้มเหลว', 'danger');
+            alert("⚠️ ขออภัย อัปโหลดไม่สำเร็จ:\n" + err.message);
+            this.showToast('อัปโหลดรูปล้มเหลว', 'danger');
             btn.innerHTML = ogText;
             btn.disabled = false;
         }
+    }
+
+    // 🟢 ระบบดึงไฟล์หลัก (PDF/ภาพ) เข้าโฟลเดอร์เอกสารใหม่ (1fknMwCe4Lq4M1QxP3s13t4J0xsmST1xi)
+    async processMainPdfUploads(files, finalTaskId) {
+        let uploadedUrls = [];
+        for (let i = 0; i < files.length; i++) { 
+            const file = files[i]; 
+            const base64Data = await new Promise((resolve) => { 
+                const reader = new FileReader(); 
+                reader.onload = () => resolve(reader.result.split(',')[1]); 
+                reader.readAsDataURL(file); 
+            }); 
+            
+            const payload = {
+                fileName: `Task_${finalTaskId}_${file.name}`,
+                mimeType: file.type,
+                base64: base64Data,
+                folderId: '1fknMwCe4Lq4M1QxP3s13t4J0xsmST1xi' // 🟢 โฟลเดอร์สำหรับ PDF / เอกสารหลัก
+            };
+
+            const response = await fetch(this.GAS_WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+
+            const textResult = await response.text();
+            let result;
+            try { 
+                result = JSON.parse(textResult); 
+            } catch(e) { 
+                throw new Error("การเชื่อมต่อ Google Drive ขัดข้อง"); 
+            }
+
+            if(result.success) {
+                uploadedUrls.push(result.url);
+            } else {
+                throw new Error(result.error);
+            }
+        }
+        return uploadedUrls;
     }
 
     getTaskProgress(task) {
@@ -497,8 +525,7 @@ class App {
             const safeName = sub.name ? sub.name.replace(/"/g, '&quot;') : '';
             const safeLink = sub.link ? sub.link.replace(/"/g, '&quot;') : '';
             
-            // ป้ายบอกว่ามีรูปแนบไว้แล้ว
-            const hasImgBadge = sub.attachedImage && sub.attachedImage.startsWith('http') ? `<span style="color:#10b981; font-size:10px; margin-left:8px;"><i class="fas fa-check-circle"></i> ส่งเข้า Drive แล้ว</span>` : '';
+            const hasImgBadge = sub.attachedImage && sub.attachedImage.startsWith('http') ? `<a href="${sub.attachedImage}" target="_blank" style="color:#10b981; font-size:11px; margin-left:8px; text-decoration:none;"><i class="fas fa-check-circle"></i> ส่งเข้า Drive แล้ว</a>` : '';
             
             item.innerHTML = `
                 <div style="display:flex; flex-direction: column; flex-grow:1; margin-right:10px; background: rgba(0,0,0,0.15); padding: 8px 10px; border-radius: 6px; border: 1px solid transparent; transition: border 0.2s;">
@@ -558,7 +585,6 @@ class App {
         }
     }
 
-    // 🟢 ระบบคืนชีพปุ่มดูภาพเก่า เผื่อพี่มีภาพที่เคยเซฟค้างไว้ในระบบ
     viewSubTaskImage(subId) {
         let foundImg = null;
         for (let t of this.tasks) {
@@ -765,7 +791,6 @@ class App {
                     const item = document.createElement('label'); item.style = 'display: flex; align-items: center; gap: 12px; background: #0f172a; padding: 12px; border-radius: 8px; cursor: pointer; margin-bottom:6px; font-size: 14px; width:100%; border:1px solid rgba(255,255,255,0.05);';
                     const textStyle = sub.isDone ? 'text-decoration: line-through; color: #64748b;' : 'color: #f8fafc; font-weight: 500;';
                     
-                    // 🟢 โชว์ปุ่มดูภาพและเปิดลิงก์แบบครอบคลุมทั้งรูปเก่าและรูปใหม่จาก Drive
                     let buttonsHtml = '';
                     if (sub.link && sub.link !== '' && sub.link !== sub.attachedImage) {
                         buttonsHtml += `<a href="${sub.link}" target="_blank" style="margin-left:auto; font-size: 11px; font-weight:600; color: #ffffff; background: #3b82f6; padding: 4px 10px; border-radius: 6px; text-decoration: none; box-shadow: 0 2px 5px rgba(59,130,246,0.3);"><i class="fas fa-link"></i> ลิงก์แนบ</a>`;
@@ -794,18 +819,29 @@ class App {
 
         if (task.hasAttachment && this.detailPdfItem && this.pdfButtonsContainer) {
             this.detailPdfItem.classList.remove('d-none'); this.pdfButtonsContainer.innerHTML = ''; 
-            let fileNamesList = []; try { fileNamesList = JSON.parse(task.attachmentName); if (!Array.isArray(fileNamesList)) fileNamesList = [task.attachmentName]; } catch (e) { fileNamesList = [task.attachmentName]; }
+            
+            let fileNamesList = []; 
+            try { fileNamesList = JSON.parse(task.attachmentName); if (!Array.isArray(fileNamesList)) fileNamesList = [task.attachmentName]; } catch (e) { fileNamesList = [task.attachmentName]; }
+            
+            let urlsList = [];
+            if (task.attachmentUrls) {
+                try { urlsList = JSON.parse(task.attachmentUrls); } catch(e) {}
+            }
+
             fileNamesList.forEach((fName, index) => {
-                const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn btn-secondary'; btn.style = 'padding: 6px 10px; font-size: 11px; font-weight: 600; text-align: left; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 5px;'; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`;
+                const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'btn btn-secondary'; btn.style = 'padding: 6px 10px; font-size: 11px; font-weight: 600; text-align: left; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 5px; margin-bottom: 5px;'; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`;
                 btn.addEventListener('click', async () => {
-                    if (this.isCloudMode) { const kvKey = fileNamesList.length === 1 ? task.id : `${task.id}_${index}`; window.open(`/api/pdf?taskId=${kvKey}`, '_blank'); } else {
-                        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์...';
+                    if (urlsList[index]) {
+                        window.open(urlsList[index], '_blank');
+                    } else {
+                        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ดึงไฟล์เก่า...';
                         try {
                             const record = await this.attachments.getAttachment(task.id);
                             if (record) { let fileDataToOpen = null; if (record.isMultiple && record.files && record.files[index]) fileDataToOpen = record.files[index].fileData; else if (record.fileData) fileDataToOpen = record.fileData; if (fileDataToOpen) window.open(URL.createObjectURL(fileDataToOpen), '_blank'); else alert('ไม่พบข้อมูลไฟล์แนบนี้'); } else { alert('ไม่พบไฟล์แนบในฐานข้อมูล'); }
                         } catch (err) {} finally { btn.disabled = false; btn.innerHTML = `<i class="fas fa-file-pdf text-danger"></i> ${fName}`; }
                     }
-                }); this.pdfButtonsContainer.appendChild(btn);
+                }); 
+                this.pdfButtonsContainer.appendChild(btn);
             });
         } else { if(this.detailPdfItem) this.detailPdfItem.classList.add('d-none'); }
 
@@ -1022,16 +1058,29 @@ class App {
             this.tasks.push(taskObj); lineAlertMessage = 'มอบหมายภารกิจชิ้นใหม่ให้ท่าน';
         }
 
+        // 🟢 อัปโหลดไฟล์เอกสารหลักเข้า Drive
         if (taskObj && this.taskPdfInput && this.taskPdfInput.files.length > 0) {
-            const files = this.taskPdfInput.files; const fileNamesArray = Array.from(files).map(f => f.name); this.btnSubmitTaskModal.disabled = true; this.btnSubmitTaskModal.innerHTML = '<i class="fas fa-spinner fa-spin"></i> อัปโหลดไฟล์...';
-            if (this.isCloudMode) {
-                try {
-                    for (let i = 0; i < files.length; i++) { const file = files[i]; const base64Data = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(file); }); const kvKey = files.length === 1 ? finalTaskId : `${finalTaskId}_${i}`; const pdfRes = await fetch('/api/pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ taskId: kvKey, fileName: file.name, fileType: file.type, fileData: base64Data }) }); if (!pdfRes.ok) throw new Error("Cloud upload fail"); }
-                    taskObj.hasAttachment = true; taskObj.attachmentName = JSON.stringify(fileNamesArray); if (!taskObj.history) taskObj.history = []; taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสาร ${files.length} ฉบับ`, user: logUser }); lineAlertMessage += ` (แนบเอกสาร ${files.length} ฉบับ)`;
-                } catch (err) { this.showToast('อัปโหลดไฟล์ไปคลาวด์ล้มเหลว', 'danger'); }
-            } else { try { await this.attachments.saveAttachment(finalTaskId, files); taskObj.hasAttachment = true; taskObj.attachmentName = JSON.stringify(fileNamesArray); if (!taskObj.history) taskObj.history = []; taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสาร ${files.length} ฉบับ`, user: logUser }); } catch (err) {} }
-            this.btnSubmitTaskModal.disabled = false; this.btnSubmitTaskModal.innerHTML = 'บันทึก';
+            const files = this.taskPdfInput.files; const fileNamesArray = Array.from(files).map(f => f.name); 
+            this.btnSubmitTaskModal.disabled = true; this.btnSubmitTaskModal.innerHTML = '<i class="fas fa-spinner fa-spin"></i> อัปโหลดไฟล์ลง Drive...';
+            
+            try {
+                let uploadedUrls = await this.processMainPdfUploads(files, finalTaskId);
+                
+                taskObj.hasAttachment = true; 
+                taskObj.attachmentName = JSON.stringify(fileNamesArray); 
+                taskObj.attachmentUrls = JSON.stringify(uploadedUrls); // 🟢 เก็บลิงก์ Drive ไว้
+                if (!taskObj.history) taskObj.history = []; 
+                taskObj.history.push({ time: now.toISOString(), action: `แนบเอกสารเข้า Drive ${files.length} ฉบับ`, user: logUser }); 
+                lineAlertMessage += ` (แนบเอกสาร ${files.length} ฉบับ)`;
+            } catch (err) { 
+                console.error(err);
+                alert("⚠️ เกิดปัญหาอัปโหลดเอกสารหลัก:\n" + err.message);
+                this.showToast('อัปโหลดเอกสารล้มเหลว', 'danger'); 
+            }
+            this.btnSubmitTaskModal.disabled = false; 
+            this.btnSubmitTaskModal.innerHTML = 'บันทึก';
         }
+
         if (lineAlertMessage !== '') this.sendLineAlert(taskObj, lineAlertMessage); this.saveData(); 
         
         this.populateYearDropdown();
