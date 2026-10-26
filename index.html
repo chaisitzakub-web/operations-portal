@@ -127,4 +127,62 @@
                 <label class="selector-label"><i class="fas fa-user-gear"></i> สลับบทบาทผู้ใช้</label>
                 <div class="custom-select-wrapper"><select id="roleSelector" class="role-selector"></select></div>
             </div>
-            <nav class="sidebar
+            <nav class="sidebar-nav">
+                <div id="leaderNav" class="nav-group">
+                    <p class="nav-group-title">ระดับฝ่ายเสธ & ผู้ดูแลระบบ (Admin)</p>
+                    <a href="#" class="nav-link active" data-view="leader-dashboard"><i class="fas fa-chart-line"></i><span>ภาพรวมยุทธการ</span></a>
+                    <a href="#" class="nav-link" data-view="leader-tasks"><i class="fas fa-list-check"></i><span>แฟ้มภารกิจทั้งหมด</span></a>
+                    <a href="#" class="nav-link" data-view="team-calendar"><i class="far fa-calendar-alt"></i><span>ปฏิทินยุทธการ</span></a>
+                    <a href="#" class="nav-link" data-view="data-repo"><i class="fas fa-cloud-arrow-up"></i><span>คลังข้อมูลส่วนกลาง</span></a>
+                    <a href="#" class="nav-link" data-view="leader-team"><i class="fas fa-users-gear"></i><span>จัดการเจ้าหน้าที่</span></a>
+                </div>
+                <div id="staffNav" class="nav-group d-none">
+                    <p class="nav-group-title">ระดับเจ้าหน้าที่ฝ่ายยุทธการ</p>
+                    <a href="#" class="nav-link" data-view="staff-kanban"><i class="fas fa-circle-nodes"></i><span>บอร์ดภารกิจ (Kanban)</span></a>
+                    <a href="#" class="nav-link" data-view="staff-tasks"><i class="fas fa-folder-open"></i><span>ภารกิจของฉัน</span></a>
+                    <a href="#" class="nav-link" data-view="team-calendar"><i class="far fa-calendar-alt"></i><span>ปฏิทินยุทธการ</span></a>
+                    <a href="#" class="nav-link" data-view="data-repo"><i class="fas fa-cloud-arrow-up"></i><span>คลังข้อมูลส่วนกลาง</span></a>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="current-user-info">
+                    <img id="currentUserAvatar" src="" alt="Avatar" class="avatar-sm">
+                    <div class="user-details"><span id="currentUserName" class="user-name">-</span><span id="currentUserRoleText" class="user-role-badge">-</span></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left">
+                    <button class="toggle-sidebar-btn" id="toggleSidebarBtn"><i class="fas fa-bars"></i></button>
+                    <h1 class="page-title" id="pageTitle">ภาพรวมยุทธการ</h1>
+                </div>
+                <div class="header-right">
+                    <div class="current-time-widget"><i class="far fa-clock"></i><span id="liveTime">00:00:00</span></div>
+                    <button class="theme-toggle-btn" id="themeToggleBtn"><i class="fas fa-moon"></i></button>
+                    <button class="btn btn-primary" id="btnCreateTask"><i class="fas fa-plus"></i> <span class="hide-on-mobile">สร้างภารกิจใหม่</span></button>
+                </div>
+            </header>
+
+            <section id="viewLeaderDashboard" class="content-view active">
+                <div class="metrics-grid">
+                    <div class="metric-card glass-card border-left-info" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'all')">
+                        <div class="metric-content"><span class="metric-label">ภารกิจทั้งหมด</span><h2 class="metric-value" id="statTotalTasks">0</h2></div>
+                        <div class="metric-icon"><i class="fas fa-folder"></i></div>
+                    </div>
+                    <div class="metric-card glass-card border-left-warning" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'กำลังทำ')">
+                        <div class="metric-content"><span class="metric-label">กำลังดำเนินการ</span><h2 class="metric-value" id="statInProgressTasks">0</h2></div>
+                        <div class="metric-icon"><i class="fas fa-spinner fa-spin"></i></div>
+                    </div>
+                    <div class="metric-card glass-card border-left-review" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'รอการอนุมัติ')">
+                        <div class="metric-content"><span class="metric-label">รออนุมัติ</span><h2 class="metric-value" id="statReviewTasks">0</h2></div>
+                        <div class="metric-icon"><i class="fas fa-file-signature"></i></div>
+                    </div>
+                    <div class="metric-card glass-card border-left-success" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'เสร็จสิ้น')">
+                        <div class="metric-content"><span class="metric-label">เสร็จสิ้น</span><h2 class="metric-value" id="statCompletedTasks">0</h2></div>
+                        <div class="metric-icon"><i class="fas fa-circle-check"></i></div>
+                    </div>
+                    <div class="metric-card glass-card border-left-danger" style="cursor: pointer;" onclick="app.navigateToTasksWithFilter('all', 'overdue')">
+                        <div class="metric-content"><span class="metric-label">เลยกำหนดส่ง</span><h2 class="metric-value" id="statOverdueTasks">0</h2></div>
+                        <div class="metric-icon"><i class="fas fa-triangle
