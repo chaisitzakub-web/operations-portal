@@ -1,6 +1,6 @@
 /**
  * Operations Portal - Application Logic (app.js)
- * อัปเดตล่าสุด: เพิ่มฟีเจอร์เลือกซ่อน/แสดงภารกิจบนปฏิทิน
+ * อัปเดตล่าสุด: รวมระบบซ่อนปฏิทิน + ระบบเข้ารหัส Base64 ป้องกันข้อมูลพัง 100%
  */
 
 class AttachmentStore {
@@ -97,48 +97,66 @@ class App {
         } catch (err) { console.error(err); alert("ระบบขัดข้องตอนเริ่มต้นแอป: " + err.message); }
     }
 
-    parseDataSafe(data) {
-        if (Array.isArray(data)) return data;
-        if (!data || data === '[]' || data === '') return [];
-        if (typeof data === 'string') {
-            try {
-                let parsed = JSON.parse(data);
-                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                return Array.isArray(parsed) ? parsed : [parsed];
-            } catch(e) { return [data]; }
-        }
-        return [data];
+    // 🟢 ระบบเข้ารหัสข้อมูล (Pack) ซ่อนเซิร์ฟเวอร์
+    packTaskData(task) {
+        let payload = JSON.parse(JSON.stringify(task));
+        let meta = {
+            subTasks: payload.subTasks || [],
+            history: payload.history || [],
+            attachmentName: payload.attachmentName || [],
+            attachmentUrls: payload.attachmentUrls || [],
+            docRefIn: payload.docRefIn || '',
+            docRefOut: payload.docRefOut || '',
+            hasAttachment: !!payload.hasAttachment,
+            showInCalendar: payload.showInCalendar !== false // บันทึกปฏิทิน
+        };
+        
+        let cleanDesc = (payload.description || '').replace(/\n\n\[META:.*\]$/, '');
+        
+        try {
+            let encodedMeta = btoa(encodeURIComponent(JSON.stringify(meta)));
+            payload.description = cleanDesc + '\n\n[META:' + encodedMeta + ']';
+        } catch(e) {}
+        
+        payload.subTasks = "[]"; 
+        payload.history = "[]";
+        payload.attachmentName = "[]";
+        payload.attachmentUrls = "[]";
+
+        return payload;
     }
 
-    normalizeTask(task) {
+    // 🟢 ระบบถอดรหัสข้อมูล (Unpack) ดึงความจริงกลับมาแสดงบนจอ
+    unpackTaskData(task) {
         if (!task) return task;
+        let cleanDesc = task.description || '';
+        const metaMatch = cleanDesc.match(/\n\n\[META:(.*)\]$/);
         
-        if (task.description && task.description.includes('\n\n---META---\n')) {
-            let parts = task.description.split('\n\n---META---\n');
-            task.description = parts[0]; 
-            try {
-                let metaObj = JSON.parse(parts[1]);
-                task.subTasks = metaObj.subTasks || [];
-                task.history = metaObj.history || [];
-                task.attachmentName = metaObj.attachmentName || [];
-                task.attachmentUrls = metaObj.attachmentUrls || [];
-                task.docRefIn = metaObj.docRefIn || '';
-                task.docRefOut = metaObj.docRefOut || '';
-                task.hasAttachment = metaObj.hasAttachment || false;
-                task.showInCalendar = metaObj.showInCalendar !== undefined ? metaObj.showInCalendar : true;
-            } catch(e) {}
-        }
-
-        task.subTasks = this.parseDataSafe(task.subTasks).filter(s => s && typeof s === 'object' && s.name);
-        task.history = this.parseDataSafe(task.history).filter(h => h && typeof h === 'object' && h.time);
-        task.attachmentName = this.parseDataSafe(task.attachmentName);
-        task.attachmentUrls = this.parseDataSafe(task.attachmentUrls);
-        
-        task.hasAttachment = (task.attachmentName.length > 0 || task.attachmentUrls.length > 0);
+        task.subTasks = Array.isArray(task.subTasks) ? task.subTasks : [];
+        task.history = Array.isArray(task.history) ? task.history : [];
+        task.attachmentName = Array.isArray(task.attachmentName) ? task.attachmentName : [];
+        task.attachmentUrls = Array.isArray(task.attachmentUrls) ? task.attachmentUrls : [];
         task.docRefIn = task.docRefIn || '';
         task.docRefOut = task.docRefOut || '';
+        task.hasAttachment = task.hasAttachment || false;
         task.showInCalendar = task.showInCalendar !== false;
 
+        if (metaMatch) {
+            try {
+                const metaStr = decodeURIComponent(atob(metaMatch[1]));
+                const meta = JSON.parse(metaStr);
+                task.subTasks = meta.subTasks || [];
+                task.history = meta.history || [];
+                task.attachmentName = meta.attachmentName || [];
+                task.attachmentUrls = meta.attachmentUrls || [];
+                task.docRefIn = meta.docRefIn || '';
+                task.docRefOut = meta.docRefOut || '';
+                task.hasAttachment = meta.hasAttachment || false;
+                if (meta.showInCalendar !== undefined) task.showInCalendar = meta.showInCalendar;
+                
+                task.description = cleanDesc.replace(/\n\n\[META:.*\]$/, ''); 
+            } catch(e) { console.error("Unpack error", e); }
+        }
         return task;
     }
 
@@ -188,7 +206,7 @@ class App {
         this.taskDocRefIn = document.getElementById('taskDocRefIn');
         this.taskDocRefOut = document.getElementById('taskDocRefOut');
         
-        this.taskShowInCalendarInput = document.getElementById('taskShowInCalendar'); // 🟢 รับค่าปุ่ม
+        this.taskShowInCalendarInput = document.getElementById('taskShowInCalendar'); // 🟢 รับค่าปุ่มปฏิทิน
 
         this.btnCancelTaskModal = document.getElementById('btnCancelTaskModal'); this.btnSubmitTaskModal = document.getElementById('btnSubmitTaskModal');
         this.taskModalCloseBtn = document.getElementById('taskModalCloseBtn');
@@ -435,7 +453,7 @@ class App {
                 const parsed = JSON.parse(storedData);
                 this.staff = Array.isArray(parsed.staff) && parsed.staff.length > 0 ? parsed.staff : JSON.parse(JSON.stringify(DEFAULT_STAFF));
                 this.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
-                this.tasks = this.tasks.map(t => this.normalizeTask(t)); 
+                this.tasks = this.tasks.map(t => this.unpackTaskData(t)); 
                 
                 const devMem = this.staff.find(m => m.id === 'dev-chaisith');
                 if (devMem && devMem.isStaffAdmin) { devMem.isStaffAdmin = false; }
@@ -451,25 +469,7 @@ class App {
     syncTaskToServer(task) {
         if (!this.isCloudMode) return;
         try {
-            let payload = JSON.parse(JSON.stringify(task));
-            let meta = {
-                subTasks: payload.subTasks || [],
-                history: payload.history || [],
-                attachmentName: payload.attachmentName || [],
-                attachmentUrls: payload.attachmentUrls || [],
-                docRefIn: payload.docRefIn || '',
-                docRefOut: payload.docRefOut || '',
-                hasAttachment: !!payload.hasAttachment,
-                showInCalendar: payload.showInCalendar !== false // 🟢 บันทึกค่าปุ่มลงเซิร์ฟเวอร์
-            };
-            
-            let cleanDesc = (payload.description || '').replace(/\n\n---META---\n.*$/, '');
-            payload.description = cleanDesc + '\n\n---META---\n' + JSON.stringify(meta);
-            
-            payload.subTasks = []; 
-            payload.history = [];
-            payload.attachmentName = [];
-            payload.attachmentUrls = [];
+            const payload = this.packTaskData(task); 
             
             fetch('/api/tasks', { 
                 method: 'POST', 
@@ -495,7 +495,7 @@ class App {
                 const data = await tasksRes.json(); 
                 if (Array.isArray(data)) {
                     this.tasks = data.map(serverTask => {
-                        let cleanServerTask = this.normalizeTask(serverTask);
+                        let cleanServerTask = this.unpackTaskData(serverTask);
                         const localTask = this.tasks.find(t => t.id === cleanServerTask.id);
                         if (localTask) {
                             if (cleanServerTask.subTasks.length === 0 && localTask.subTasks && localTask.subTasks.length > 0) {
@@ -789,7 +789,7 @@ class App {
         if (this.calendarInstance) { this.calendarInstance.destroy(); this.calendarInstance = null; }
         calendarContainer.innerHTML = ''; 
 
-        // 🟢 กรองเฉพาะงานที่อนุญาตให้แสดงบนปฏิทินเท่านั้น
+        // 🟢 กรองเฉพาะงานที่ตั้งค่าให้โชว์บนปฏิทินเท่านั้น
         const calendarTasks = this.tasks.filter(t => t.showInCalendar !== false);
 
         const groupedTasks = {};
@@ -1143,7 +1143,7 @@ class App {
         
         if(this.taskDocRefIn) this.taskDocRefIn.value = '';
         if(this.taskDocRefOut) this.taskDocRefOut.value = '';
-        if(this.taskShowInCalendarInput) this.taskShowInCalendarInput.checked = true; // ตั้งค่าเริ่มต้นให้แสดง
+        if(this.taskShowInCalendarInput) this.taskShowInCalendarInput.checked = true; // 🟢 ตั้งค่าเริ่มต้นให้แสดง
 
         const currentMem = this.staff.find(m => m.id === this.currentUser);
         const isAdmin = currentMem && (currentMem.id === 'leader' || currentMem.id === 'asst-g3' || currentMem.isStaffAdmin);
